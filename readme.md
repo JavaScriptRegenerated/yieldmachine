@@ -20,7 +20,7 @@ npm add yieldmachine
 ```javascript
 import { call, on, start } from "yieldmachine";
 
-function Loader({ url }: { url: URL }) {
+function Loader({ url }) {
   function* idle() {
     yield on("FETCH", loading);
   }
