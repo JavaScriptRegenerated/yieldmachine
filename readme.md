@@ -38,11 +38,13 @@ function Loader({ url }) {
 }
 
 const loader = start(Loader, { url: new URL("https://example.org/") });
+loader.value; // "idle"
 
 loader.next("FETCH");
 loader.value; // "loading"
 
 loader.promisedValue.then(response => {
   // Use response of fetch()
+  loader.value; // "success"
 });
 ```
