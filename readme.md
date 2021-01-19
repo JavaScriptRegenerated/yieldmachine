@@ -18,7 +18,7 @@ npm add yieldmachine
 ## Examples
 
 ```javascript
-import { call, on, start } from "yieldmachine";
+import { entry, on, start } from "yieldmachine";
 
 const exampleURL = new URL("https://example.org/");
 function fetchData() {
