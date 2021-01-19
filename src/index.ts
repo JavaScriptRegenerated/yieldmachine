@@ -4,19 +4,40 @@ export interface Call<A extends Array<any>> {
   args: A;
 }
 
+export interface ActionBody {
+  (): void;
+}
+
+export interface EntryAction {
+  type: "entry";
+  then: ActionBody;
+}
+export interface ExitAction {
+  type: "exit";
+  then: ActionBody;
+}
+
 export interface On {
   type: "on";
   on: string;
   target: Function;
 }
 
-export type Yielded = Call<any> | On;
+export type Yielded = EntryAction | On | Call<any>;
 
 export function call<Arguments extends Array<any>>(
   f: (...args: Arguments) => void,
   args: Arguments
 ): Call<Arguments> {
   return { type: "call", f, args };
+}
+
+export function entry(then: ActionBody): EntryAction {
+  return { type: "entry", then };
+}
+
+export function exit(then: ActionBody): ExitAction {
+  return { type: "exit", then };
 }
 
 export function on<Event extends string>(event: Event, target: Function): On {
@@ -28,11 +49,16 @@ export interface MachineInstance extends Iterator<string, void, string> {
   value: string;
   promisedValue: null | Promise<Array<any>>;
   done: boolean;
+  next(
+    ...args: [string]
+  ): IteratorResult<string, void> & {
+    actions: Array<EntryAction | ExitAction>;
+  };
 }
 
 export function start<Arguments extends Array<any>>(
   machine: (...args: Arguments) => () => Generator<Yielded>,
-  args: Arguments
+  args?: Arguments
 ): MachineInstance {
   const initialGenerator = machine.apply(null, args);
 
@@ -41,6 +67,7 @@ export function start<Arguments extends Array<any>>(
   let state = {
     changeCount: -1,
     current: "",
+    actions: [] as Array<EntryAction | ExitAction>,
     promisedValue: null as Promise<Array<any>> | null,
   };
 
@@ -61,10 +88,19 @@ export function start<Arguments extends Array<any>>(
 
     const results: Array<any> = [];
 
-    const iterable = stateGenerator()
+    const iterable = stateGenerator();
     for (const value of iterable) {
-      if (value.type === "call") {
-        const result = new Promise(resolve => resolve(value.f.apply(null, value.args)));
+      if (value.type === "entry") {
+        state.actions.push(value);
+        // const result = Promise.resolve(value);
+        const result = new Promise((resolve) => {
+          resolve(value.then())
+        });
+        results.push(result);
+      } else if (value.type === "call") {
+        const result = new Promise((resolve) =>
+          resolve(value.f.apply(null, value.args))
+        );
         results.push(result);
       } else if (value.type === "on") {
         eventsMap.set(value.on, value.target);
@@ -97,7 +133,11 @@ export function start<Arguments extends Array<any>>(
     },
     next(event: string) {
       receive(event, state.changeCount);
-      return { value: state.current, done: false };
+      return {
+        value: state.current,
+        actions: Array.from(state.actions),
+        done: false,
+      };
     },
     get done() {
       return false;
