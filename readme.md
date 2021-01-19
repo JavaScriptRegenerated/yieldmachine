@@ -25,7 +25,7 @@ function fetchData() {
   return fetch(exampleURL.toString());
 }
 
-function Loader({ url }) {
+function Loader() {
   function* idle() {
     yield on("FETCH", loading);
   }
