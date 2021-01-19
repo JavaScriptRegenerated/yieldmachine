@@ -1,9 +1,9 @@
 <div align="center">
   <h1>👑 ⚙️ Yield Machine</h1>
   <a href="https://bundlephobia.com/result?p=yieldmachine">
-    <img src="https://badgen.net/bundlephobia/minzip/yieldmachine@0.1.1" alt="minified and gzipped size">
-    <img src="https://badgen.net/bundlephobia/min/yieldmachine@0.1.1" alt="minified size">
-    <img src="https://badgen.net/bundlephobia/dependency-count/yieldmachine@0.1.1" alt="zero dependencies">
+    <img src="https://badgen.net/bundlephobia/minzip/yieldmachine@0.1.2" alt="minified and gzipped size">
+    <img src="https://badgen.net/bundlephobia/min/yieldmachine@0.1.2" alt="minified size">
+    <img src="https://badgen.net/bundlephobia/dependency-count/yieldmachine@0.1.2" alt="zero dependencies">
   </a>
 </div>
 

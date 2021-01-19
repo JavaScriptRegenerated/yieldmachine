@@ -1,6 +1,6 @@
 {
   "name": "yieldmachine",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Declarative state machines using generator functions",
   "source": "src/index.ts",
   "main": "dist/yieldmachine.js",
