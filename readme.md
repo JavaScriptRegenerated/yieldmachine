@@ -52,4 +52,8 @@ loader.resolved.then(([response]) => {
   // Use response of fetch()
   loader.value; // "success"
 });
+
+/* Or with await: */
+// const [response] = await loader.resolved;
+// loader.value; // "success"
 ```
