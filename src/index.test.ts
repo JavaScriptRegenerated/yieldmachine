@@ -45,13 +45,14 @@ describe("Machine with entry", () => {
       expect(loader.value).toEqual("idle");
       expect(loader.changeCount).toEqual(0);
 
-      const { actions } = loader.next("FETCH");
+      const transitionResult = loader.next("FETCH");
       expect(fetch).toHaveBeenCalledWith("https://example.org/");
-      expect(actions).toEqual([{ type: "entry", then: fetchData }]);
+      expect(transitionResult.actions).toEqual([{ type: "entry", f: fetchData }]);
       expect(loader.value).toEqual("loading");
       expect(loader.changeCount).toEqual(1);
 
-      await expect(loader.promisedValue).resolves.toEqual([42]);
+      await expect(loader.resolved).resolves.toEqual([42]);
+      await expect(Promise.resolve(transitionResult)).resolves.toEqual([42]);
       expect(loader.changeCount).toEqual(2);
       expect(loader.value).toEqual("success");
       
@@ -59,7 +60,7 @@ describe("Machine with entry", () => {
       expect(loader.changeCount).toEqual(2);
       expect(loader.value).toEqual("success");
 
-      await loader.promisedValue;
+      await loader.resolved;
     });
   });
 
@@ -75,11 +76,11 @@ describe("Machine with entry", () => {
       const { actions } = loader.next("FETCH");
       expect(fetch).toHaveBeenCalledTimes(1);
       expect(fetch).toHaveBeenLastCalledWith("https://example.org/");
-      expect(actions).toEqual([{ type: "entry", then: fetchData }]);
+      expect(actions).toEqual([{ type: "entry", f: fetchData }]);
       expect(loader.value).toEqual("loading");
       expect(loader.changeCount).toEqual(1);
 
-      await expect(loader.promisedValue).rejects.toEqual(new Error("Failed!"));
+      await expect(loader.resolved).rejects.toEqual(new Error("Failed!"));
       expect(loader.changeCount).toEqual(2);
       expect(loader.value).toEqual("failure");
 
@@ -94,7 +95,7 @@ describe("Machine with entry", () => {
       expect(fetch).toHaveBeenCalledTimes(2);
       expect(fetch).toHaveBeenLastCalledWith("https://example.org/");
 
-      await expect(loader.promisedValue).resolves.toEqual([42]);
+      await expect(loader.resolved).resolves.toEqual([42]);
       expect(loader.changeCount).toEqual(4);
       expect(loader.value).toEqual("success");
     });
@@ -134,12 +135,12 @@ describe("Machine with call", () => {
     test("sending events", async () => {
       const loader = start(Loader, [{ url: someURL }]);
       expect(loader.value).toEqual("idle");
-      await expect(loader.promisedValue).resolves.toEqual([]);
+      await expect(loader.resolved).resolves.toEqual([]);
 
       loader.next("NOOP");
       expect(loader.value).toEqual("idle");
       expect(loader.changeCount).toEqual(0);
-      await expect(loader.promisedValue).resolves.toEqual([]);
+      await expect(loader.resolved).resolves.toEqual([]);
 
       loader.next("FETCH");
       expect(loader.value).toEqual("loading");
@@ -147,14 +148,14 @@ describe("Machine with call", () => {
 
       expect(fetch).toHaveBeenCalledWith("https://example.org/");
 
-      await expect(loader.promisedValue).resolves.toEqual([42]);
+      await expect(loader.resolved).resolves.toEqual([42]);
       expect(loader.changeCount).toEqual(2);
       expect(loader.value).toEqual("success");
 
       loader.next("FETCH");
       expect(loader.changeCount).toEqual(2);
 
-      await loader.promisedValue;
+      await loader.resolved;
     });
   });
 
@@ -174,7 +175,7 @@ describe("Machine with call", () => {
       expect(fetch).toHaveBeenCalledTimes(1);
       expect(fetch).toHaveBeenLastCalledWith("https://example.org/");
 
-      await expect(loader.promisedValue).rejects.toEqual(new Error("Failed!"));
+      await expect(loader.resolved).rejects.toEqual(new Error("Failed!"));
       expect(loader.changeCount).toEqual(2);
       expect(loader.value).toEqual("failure");
 
@@ -189,7 +190,7 @@ describe("Machine with call", () => {
       expect(fetch).toHaveBeenCalledTimes(2);
       expect(fetch).toHaveBeenLastCalledWith("https://example.org/");
 
-      await expect(loader.promisedValue).resolves.toEqual([42]);
+      await expect(loader.resolved).resolves.toEqual([42]);
       expect(loader.changeCount).toEqual(4);
       expect(loader.value).toEqual("success");
     });

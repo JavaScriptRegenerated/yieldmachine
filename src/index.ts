@@ -10,11 +10,11 @@ export interface ActionBody {
 
 export interface EntryAction {
   type: "entry";
-  then: ActionBody;
+  f: ActionBody;
 }
 export interface ExitAction {
   type: "exit";
-  then: ActionBody;
+  f: ActionBody;
 }
 
 export interface On {
@@ -32,12 +32,12 @@ export function call<Arguments extends Array<any>>(
   return { type: "call", f, args };
 }
 
-export function entry(then: ActionBody): EntryAction {
-  return { type: "entry", then };
+export function entry(f: ActionBody): EntryAction {
+  return { type: "entry", f };
 }
 
-export function exit(then: ActionBody): ExitAction {
-  return { type: "exit", then };
+export function exit(f: ActionBody): ExitAction {
+  return { type: "exit", f };
 }
 
 export function on<Event extends string>(event: Event, target: Function): On {
@@ -47,11 +47,11 @@ export function on<Event extends string>(event: Event, target: Function): On {
 export interface MachineInstance extends Iterator<string, void, string> {
   changeCount: number;
   value: string;
-  promisedValue: null | Promise<Array<any>>;
+  resolved: null | Promise<Array<any>>;
   done: boolean;
   next(
     ...args: [string]
-  ): IteratorResult<string, void> & {
+  ): IteratorResult<string, void> & PromiseLike<any> & {
     actions: Array<EntryAction | ExitAction>;
   };
 }
@@ -68,7 +68,7 @@ export function start<Arguments extends Array<any>>(
     changeCount: -1,
     current: "",
     actions: [] as Array<EntryAction | ExitAction>,
-    promisedValue: null as Promise<Array<any>> | null,
+    resolved: null as Promise<Array<any>> | null,
   };
 
   function receive(event: string, count: number) {
@@ -83,7 +83,7 @@ export function start<Arguments extends Array<any>>(
   function transitionTo(stateGenerator: () => Generator<Yielded>) {
     state.changeCount++;
     state.current = stateGenerator.name;
-    state.promisedValue = null;
+    state.resolved = null;
     eventsMap.clear();
 
     const results: Array<any> = [];
@@ -94,7 +94,7 @@ export function start<Arguments extends Array<any>>(
         state.actions.push(value);
         // const result = Promise.resolve(value);
         const result = new Promise((resolve) => {
-          resolve(value.then())
+          resolve(value.f());
         });
         results.push(result);
       } else if (value.type === "call") {
@@ -108,10 +108,10 @@ export function start<Arguments extends Array<any>>(
     }
 
     // const promise = Promise.all(results);
-    const promise = Promise.resolve(state.promisedValue)
+    const promise = Promise.resolve(state.resolved)
       .catch(() => {})
       .then(() => Promise.all(results));
-    state.promisedValue = promise;
+    state.resolved = promise;
 
     const snapshotCount = state.changeCount;
     promise
@@ -128,14 +128,17 @@ export function start<Arguments extends Array<any>>(
     get value() {
       return state.current;
     },
-    get promisedValue() {
-      return state.promisedValue;
+    get resolved() {
+      return state.resolved;
     },
     next(event: string) {
       receive(event, state.changeCount);
+      const promise = state.resolved!;
+      Promise.resolve
       return {
         value: state.current,
         actions: Array.from(state.actions),
+        then: promise.then.bind(promise),
         done: false,
       };
     },
