@@ -6,7 +6,7 @@ beforeEach(fetch.mockClear);
 const finishedLoading = jest.fn();
 beforeEach(finishedLoading.mockClear);
 
-describe("Machine with entry", () => {
+describe("Machine with entry and exit actions", () => {
   function Loader() {
     function* idle() {
       yield on("FETCH", loading);
