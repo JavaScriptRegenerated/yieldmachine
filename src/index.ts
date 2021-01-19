@@ -23,7 +23,7 @@ export interface On {
   target: Function;
 }
 
-export type Yielded = EntryAction | On | Call<any>;
+export type Yielded = On | EntryAction | ExitAction | Call<any>;
 
 export function call<Arguments extends Array<any>>(
   f: (...args: Arguments) => void,
@@ -51,9 +51,10 @@ export interface MachineInstance extends Iterator<string, void, string> {
   done: boolean;
   next(
     ...args: [string]
-  ): IteratorResult<string, void> & PromiseLike<any> & {
-    actions: Array<EntryAction | ExitAction>;
-  };
+  ): IteratorResult<string, void> &
+    PromiseLike<any> & {
+      actions: Array<EntryAction | ExitAction>;
+    };
 }
 
 export function start<Arguments extends Array<any>>(
@@ -67,7 +68,8 @@ export function start<Arguments extends Array<any>>(
   let state = {
     changeCount: -1,
     current: "",
-    actions: [] as Array<EntryAction | ExitAction>,
+    entryActions: [] as Array<EntryAction>,
+    exitActions: [] as Array<ExitAction>,
     resolved: null as Promise<Array<any>> | null,
   };
 
@@ -81,8 +83,14 @@ export function start<Arguments extends Array<any>>(
   }
 
   function transitionTo(stateGenerator: () => Generator<Yielded>) {
+    state.exitActions.forEach((action) => {
+      action.f();
+    });
+
     state.changeCount++;
     state.current = stateGenerator.name;
+    state.entryActions.splice(0, Infinity);
+    state.exitActions.splice(0, Infinity);
     state.resolved = null;
     eventsMap.clear();
 
@@ -91,12 +99,14 @@ export function start<Arguments extends Array<any>>(
     const iterable = stateGenerator();
     for (const value of iterable) {
       if (value.type === "entry") {
-        state.actions.push(value);
+        state.entryActions.push(value);
         // const result = Promise.resolve(value);
         const result = new Promise((resolve) => {
           resolve(value.f());
         });
         results.push(result);
+      } else if (value.type === "exit") {
+        state.exitActions.push(value);
       } else if (value.type === "call") {
         const result = new Promise((resolve) =>
           resolve(value.f.apply(null, value.args))
@@ -134,10 +144,10 @@ export function start<Arguments extends Array<any>>(
     next(event: string) {
       receive(event, state.changeCount);
       const promise = state.resolved!;
-      Promise.resolve
+      Promise.resolve;
       return {
         value: state.current,
-        actions: Array.from(state.actions),
+        actions: Array.from(state.entryActions),
         then: promise.then.bind(promise),
         done: false,
       };

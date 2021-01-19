@@ -1,7 +1,10 @@
-import { call, entry, on, start } from "./index";
+import { call, entry, exit, on, start } from "./index";
 
 const fetch = jest.fn();
 beforeEach(fetch.mockClear);
+
+const finishedLoading = jest.fn();
+beforeEach(finishedLoading.mockClear);
 
 describe("Machine with entry", () => {
   function Loader() {
@@ -10,6 +13,7 @@ describe("Machine with entry", () => {
     }
     function* loading() {
       yield entry(fetchData);
+      yield exit(finishedLoading);
       yield on("SUCCESS", success);
       yield on("FAILURE", failure);
     }
@@ -47,16 +51,21 @@ describe("Machine with entry", () => {
 
       const transitionResult = loader.next("FETCH");
       expect(fetch).toHaveBeenCalledWith("https://example.org/");
-      expect(transitionResult.actions).toEqual([{ type: "entry", f: fetchData }]);
+      expect(transitionResult.actions).toEqual([
+        { type: "entry", f: fetchData },
+      ]);
       expect(loader.value).toEqual("loading");
       expect(loader.changeCount).toEqual(1);
+      expect(finishedLoading).toHaveBeenCalledTimes(0);
 
       await expect(loader.resolved).resolves.toEqual([42]);
       await expect(Promise.resolve(transitionResult)).resolves.toEqual([42]);
+      expect(finishedLoading).toHaveBeenCalledTimes(1);
       expect(loader.changeCount).toEqual(2);
       expect(loader.value).toEqual("success");
-      
-      loader.next("FETCH");
+
+      const transitionResult2 = loader.next("FETCH");
+      expect(transitionResult2.actions).toEqual([]);
       expect(loader.changeCount).toEqual(2);
       expect(loader.value).toEqual("success");
 
@@ -73,25 +82,26 @@ describe("Machine with entry", () => {
       const loader = start(Loader, [{ url: someURL }]);
       expect(loader.value).toEqual("idle");
 
-      const { actions } = loader.next("FETCH");
+      const transitionResult = loader.next("FETCH");
       expect(fetch).toHaveBeenCalledTimes(1);
       expect(fetch).toHaveBeenLastCalledWith("https://example.org/");
-      expect(actions).toEqual([{ type: "entry", f: fetchData }]);
+      expect(transitionResult.actions).toEqual([{ type: "entry", f: fetchData }]);
       expect(loader.value).toEqual("loading");
       expect(loader.changeCount).toEqual(1);
 
       await expect(loader.resolved).rejects.toEqual(new Error("Failed!"));
+      await expect(Promise.resolve(transitionResult)).rejects.toEqual(new Error("Failed!"));
       expect(loader.changeCount).toEqual(2);
       expect(loader.value).toEqual("failure");
 
       loader.next("FETCH");
       expect(fetch).toHaveBeenCalledTimes(1);
       expect(loader.changeCount).toEqual(2);
-      
+
       loader.next("RETRY");
       expect(loader.value).toEqual("loading");
       expect(loader.changeCount).toEqual(3);
-      
+
       expect(fetch).toHaveBeenCalledTimes(2);
       expect(fetch).toHaveBeenLastCalledWith("https://example.org/");
 
