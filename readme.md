@@ -20,12 +20,17 @@ npm add yieldmachine
 ```javascript
 import { call, on, start } from "yieldmachine";
 
+const exampleURL = new URL("https://example.org/");
+function fetchData() {
+  return fetch(exampleURL.toString());
+}
+
 function Loader({ url }) {
   function* idle() {
     yield on("FETCH", loading);
   }
   function* loading() {
-    yield call(fetch, [url.toString()]);
+    yield entry(fetchData);
     yield on("SUCCESS", success);
     yield on("FAILURE", failure);
   }
@@ -37,13 +42,13 @@ function Loader({ url }) {
   return idle;
 }
 
-const loader = start(Loader, { url: new URL("https://example.org/") });
+const loader = start(Loader);
 loader.value; // "idle"
 
 loader.next("FETCH");
 loader.value; // "loading"
 
-loader.promisedValue.then(response => {
+loader.resolved.then(([response]) => {
   // Use response of fetch()
   loader.value; // "success"
 });
