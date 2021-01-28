@@ -17,6 +17,8 @@ npm add yieldmachine
 
 ## Examples
 
+### HTTP Loader
+
 ```javascript
 import { entry, on, start } from "yieldmachine";
 
