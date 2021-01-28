@@ -142,8 +142,12 @@ describe("Form Field Machine with entry and exit actions", () => {
       // return [cond(isValid, valid), invalid];
       // return conds([[isValid, valid], [true, invalid]]);
     }
-    function* invalid() {}
-    function* valid() {}
+    function* invalid() {
+      yield on("CHANGE", editing);
+    }
+    function* valid() {
+      yield on("CHANGE", editing);
+    }
 
     return initial;
   }
