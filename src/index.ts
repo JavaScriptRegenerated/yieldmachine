@@ -17,13 +17,24 @@ export interface ExitAction {
   f: ActionBody;
 }
 
+export type StateDefinition = () => Generator<Yielded, any, unknown>;
+export interface Cond {
+  type: "cond";
+  cond: Function;
+  target: StateDefinition;
+}
+export type Target = StateDefinition | Cond;
 export interface On {
   type: "on";
   on: string;
-  target: Function;
+  target: Target;
+}
+export interface Always {
+  type: "always";
+  target: Target;
 }
 
-export type Yielded = On | EntryAction | ExitAction | Call<any>;
+export type Yielded = On | Always | EntryAction | ExitAction | Call<any>;
 
 export function call<Arguments extends Array<any>>(
   f: (...args: Arguments) => void,
@@ -40,8 +51,16 @@ export function exit(f: ActionBody): ExitAction {
   return { type: "exit", f };
 }
 
-export function on<Event extends string>(event: Event, target: Function): On {
+export function on<Event extends string>(event: Event, target: Target): On {
   return { type: "on", on: event, target };
+}
+
+export function always(target: Target): Always {
+  return { type: "always", target };
+}
+
+export function cond(cond: () => boolean, target: StateDefinition): Cond {
+  return { type: "cond", cond, target };
 }
 
 export interface MachineInstance extends Iterator<string, void, string> {
@@ -63,7 +82,8 @@ export function start<Arguments extends Array<any>>(
 ): MachineInstance {
   const initialGenerator = machine.apply(null, args);
 
-  const eventsMap = new Map();
+  const eventsMap: Map<string, Target> = new Map();
+  const alwaysArray: Array<Target> = [];
 
   let state = {
     changeCount: -1,
@@ -73,12 +93,27 @@ export function start<Arguments extends Array<any>>(
     resolved: null as Promise<Array<any>> | null,
   };
 
+  function processTarget(target: Target): boolean {
+    if ('type' in target) {
+      const result = target.cond();
+      if (result) {
+        transitionTo(target.target);
+        return true;
+      }
+    } else {
+      transitionTo(target);
+      return true;
+    }
+
+    return false;
+  }
+
   function receive(event: string, count: number) {
     if (count !== state.changeCount) return;
 
     const target = eventsMap.get(event);
     if (target) {
-      transitionTo(target);
+      processTarget(target);
     }
   }
 
@@ -93,6 +128,7 @@ export function start<Arguments extends Array<any>>(
     state.exitActions.splice(0, Infinity);
     state.resolved = null;
     eventsMap.clear();
+    alwaysArray.splice(0, Infinity);
 
     const results: Array<any> = [];
 
@@ -114,6 +150,8 @@ export function start<Arguments extends Array<any>>(
         results.push(result);
       } else if (value.type === "on") {
         eventsMap.set(value.on, value.target);
+      } else if (value.type === "always") {
+        alwaysArray.push(value.target);
       }
     }
 
@@ -127,6 +165,8 @@ export function start<Arguments extends Array<any>>(
     promise
       .then(() => receive("SUCCESS", snapshotCount))
       .catch(() => receive("FAILURE", snapshotCount));
+    
+    alwaysArray.some(processTarget);
   }
 
   transitionTo(initialGenerator);

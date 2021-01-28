@@ -1,4 +1,4 @@
-import { call, entry, exit, on, start } from "./index";
+import { always, call, cond, entry, exit, on, start } from "./index";
 
 const fetch = jest.fn();
 beforeEach(fetch.mockClear);
@@ -7,6 +7,11 @@ const finishedLoading = jest.fn();
 beforeEach(finishedLoading.mockClear);
 
 describe("Machine with entry and exit actions", () => {
+  const someURL = new URL("https://example.org/");
+  function fetchData() {
+    return fetch(someURL.toString());
+  }
+
   function Loader() {
     function* idle() {
       yield on("FETCH", loading);
@@ -23,11 +28,6 @@ describe("Machine with entry and exit actions", () => {
     }
 
     return idle;
-  }
-
-  const someURL = new URL("https://example.org/");
-  function fetchData() {
-    return fetch(someURL.toString());
   }
 
   test("creating", () => {
@@ -85,12 +85,16 @@ describe("Machine with entry and exit actions", () => {
       const transitionResult = loader.next("FETCH");
       expect(fetch).toHaveBeenCalledTimes(1);
       expect(fetch).toHaveBeenLastCalledWith("https://example.org/");
-      expect(transitionResult.actions).toEqual([{ type: "entry", f: fetchData }]);
+      expect(transitionResult.actions).toEqual([
+        { type: "entry", f: fetchData },
+      ]);
       expect(loader.value).toEqual("loading");
       expect(loader.changeCount).toEqual(1);
 
       await expect(loader.resolved).rejects.toEqual(new Error("Failed!"));
-      await expect(Promise.resolve(transitionResult)).rejects.toEqual(new Error("Failed!"));
+      await expect(Promise.resolve(transitionResult)).rejects.toEqual(
+        new Error("Failed!")
+      );
       expect(loader.changeCount).toEqual(2);
       expect(loader.value).toEqual("failure");
 
@@ -108,6 +112,92 @@ describe("Machine with entry and exit actions", () => {
       await expect(loader.resolved).resolves.toEqual([42]);
       expect(loader.changeCount).toEqual(4);
       expect(loader.value).toEqual("success");
+    });
+  });
+});
+
+describe("Form Field Machine with entry and exit actions", () => {
+  // const validate = jest.fn();
+  // beforeEach(validate.mockClear);
+  const isValid = jest.fn();
+  beforeEach(isValid.mockClear);
+
+  function FormField() {
+    function* initial() {
+      yield on("CHANGE", editing);
+    }
+    function* editing() {
+      // yield exit(validate);
+      yield on("CHANGE", editing);
+      yield on("BLUR", validating);
+    }
+    function* validating() {
+      yield always(cond(isValid, valid));
+      yield always(invalid);
+
+      // yield on(null, cond(isValid, valid));
+      // yield on(null, invalid);
+
+      // yield always([cond(isValid, valid), invalid]);
+      // return [cond(isValid, valid), invalid];
+      // return conds([[isValid, valid], [true, invalid]]);
+    }
+    function* invalid() {}
+    function* valid() {}
+
+    return initial;
+  }
+
+  test("creating", () => {
+    const formField = start(FormField);
+    expect(formField).toBeDefined();
+  });
+
+  describe("when is valid", () => {
+    beforeEach(() => {
+      isValid.mockReturnValue(true);
+    });
+
+    test("sending events", () => {
+      const formField = start(FormField);
+      expect(formField).toBeDefined();
+      expect(formField.value).toEqual("initial");
+
+      formField.next("CHANGE");
+      expect(formField.value).toEqual("editing");
+      expect(formField.changeCount).toEqual(1);
+
+      formField.next("CHANGE");
+      expect(formField.value).toEqual("editing");
+      expect(formField.changeCount).toEqual(2);
+
+      formField.next("BLUR");
+      expect(formField.value).toEqual("valid");
+      expect(formField.changeCount).toEqual(4);
+    });
+  });
+
+  describe("when is invalid", () => {
+    beforeEach(() => {
+      isValid.mockReturnValue(false);
+    });
+
+    test("sending events", () => {
+      const formField = start(FormField);
+      expect(formField).toBeDefined();
+      expect(formField.value).toEqual("initial");
+
+      formField.next("CHANGE");
+      expect(formField.value).toEqual("editing");
+      expect(formField.changeCount).toEqual(1);
+
+      formField.next("CHANGE");
+      expect(formField.value).toEqual("editing");
+      expect(formField.changeCount).toEqual(2);
+
+      formField.next("BLUR");
+      expect(formField.value).toEqual("invalid");
+      expect(formField.changeCount).toEqual(4);
     });
   });
 });
