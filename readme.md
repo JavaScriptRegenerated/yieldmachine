@@ -59,3 +59,11 @@ loader.resolved.then(([response]) => {
 // const [response] = await loader.resolved;
 // loader.value; // "success"
 ```
+
+----
+
+Further reading / inspiration:
+- [XState](https://xstate.js.org/)
+- [Robot](https://thisrobot.life/)
+- [Welcome to the world of Statecharts](https://statecharts.github.io/)
+- [PingPong in P](https://github.com/p-org/P/wiki/PingPong-program)
