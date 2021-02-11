@@ -154,8 +154,7 @@ class InternalInstance {
   private parent: null | InternalInstance
   private globalHandlers = new Handlers()
   private resolved = null as Promise<Array<any>> | null
-  // TODO: Just can have reference to child instance, and use childInstance.definition
-  child: null | { definition: () => Generator<Yielded, StateDefinition, never>, instance: InternalInstance } = null
+  child: null | InternalInstance = null
   
   constructor(
     parent: null | InternalInstance,
@@ -175,7 +174,7 @@ class InternalInstance {
     if (this.child === null) {
       return this.definition.name;
     } else {
-      return { [this.definition.name]: this.child.instance.current };
+      return { [this.definition.name]: this.child.current };
     }
     // if (this.child === null) {
     //   return null;
@@ -187,7 +186,7 @@ class InternalInstance {
   private *generateActions(): Generator<EntryAction, void, undefined> {
     yield* this.globalHandlers.actions();
     if (this.child !== null) {
-      yield* this.child.instance.generateActions();
+      yield* this.child.generateActions();
     }
   }
   
@@ -200,7 +199,7 @@ class InternalInstance {
       yield* await this.resolved;
     }
     if (this.child !== null) {
-      yield* this.child.instance.valuePromises();
+      yield* this.child.valuePromises();
     }
   }
   
@@ -277,7 +276,7 @@ class InternalInstance {
           return;
         }
         
-        this.child.instance.willExit();  
+        this.child.willExit();  
       }
       
       this.willExit();
@@ -285,7 +284,7 @@ class InternalInstance {
       // this.resolved = null;
       
       const childInstance = new InternalInstance(this, stateDefinition, this.callbacks);
-      this.child = { definition: stateDefinition, instance: childInstance };
+      this.child = childInstance;
       childInstance.didEnter();
     }
     
@@ -307,7 +306,7 @@ class InternalInstance {
         for (const nestedTarget of target.targets) {
           receiver.transitionTo(nestedTarget);
           if (receiver.child !== null) {
-            receiver = receiver.child.instance;
+            receiver = receiver.child;
           } else {
             break;
           }
@@ -326,7 +325,7 @@ class InternalInstance {
   }
 
   receive(event: string) {
-    this.child?.instance.receive(event);
+    this.child?.receive(event);
 
     const target = this.globalHandlers.targetForEvent(event);
     if (target !== undefined) {
