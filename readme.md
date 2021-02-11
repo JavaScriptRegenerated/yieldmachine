@@ -27,20 +27,27 @@ function fetchData() {
   return fetch(exampleURL);
 }
 
+// Define a machine just using functions
 function Loader() {
+  // Each state is a generator function
   function* idle() {
     yield on("FETCH", loading);
   }
+  // This is the ‘loading’ state
   function* loading() {
     yield entry(fetchData);
     yield on("SUCCESS", success);
     yield on("FAILURE", failure);
   }
+  // States can be final
   function* success() {}
+  // Or they can define transitions to other states
   function* failure() {
+    // When the RETRY event happens, we transition from ‘failure’ to ‘loading’
     yield on("RETRY", loading);
   }
 
+  // Return the initial state from your machine definition
   return idle;
 }
 
@@ -104,10 +111,6 @@ loader.resolved.then(([response]) => {
   // Use response of fetch()
   loader.value; // "success"
 });
-
-/* Or with await: */
-// const [response] = await loader.resolved;
-// loader.value; // "success"
 ```
 
 ----
