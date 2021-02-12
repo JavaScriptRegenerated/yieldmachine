@@ -1,6 +1,6 @@
 <div align="center">
   <h1>👑 ⚙️ Yield Machine</h1>
-  <div>State Machines using Generator Functions</div>
+  <div style="margin-bottom: 1em">Define State Machines using Generator Functions</div>
   <div>
     <a href="https://bundlephobia.com/result?p=yieldmachine">
       <img src="https://badgen.net/bundlephobia/minzip/yieldmachine@0.2.0" alt="minified and gzipped size">
