@@ -1,13 +1,14 @@
 <div align="center">
   <h1>👑 ⚙️ Yield Machine</h1>
-  <a href="https://bundlephobia.com/result?p=yieldmachine">
-    <img src="https://badgen.net/bundlephobia/minzip/yieldmachine@0.2.0" alt="minified and gzipped size">
-    <img src="https://badgen.net/bundlephobia/min/yieldmachine@0.2.0" alt="minified size">
-    <img src="https://badgen.net/bundlephobia/dependency-count/yieldmachine@0.2.0" alt="zero dependencies">
-  </a>
+  <p>Define State Machines using Generator Functions</p>
+  <div>
+    <a href="https://bundlephobia.com/result?p=yieldmachine">
+      <img src="https://badgen.net/bundlephobia/minzip/yieldmachine@0.2.0" alt="minified and gzipped size">
+      <img src="https://badgen.net/bundlephobia/min/yieldmachine@0.2.0" alt="minified size">
+      <img src="https://badgen.net/bundlephobia/dependency-count/yieldmachine@0.2.0" alt="zero dependencies">
+    </a>
+  </div>
 </div>
-
-State Machines using Generator Functions
 
 ## Install
 
