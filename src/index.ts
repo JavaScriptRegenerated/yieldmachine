@@ -74,7 +74,7 @@ export function compound(...targets: Array<StateDefinition>): Compound {
 export interface MachineInstance extends Iterator<null | string | Record<string, string>, void, string> {
   changeCount: number;
   current: null | string | Record<string, string>;
-  resolved: null | Promise<Array<any>>;
+  results: null | Promise<Array<any>>;
   done: boolean;
   next(
     ...args: [string]
@@ -204,7 +204,7 @@ class InternalInstance {
     }
   }
   
-  get value(): Promise<Array<any>> {
+  get results(): Promise<Array<any>> {
     const build = async () => {
       const objects: Array<any> = [];
       for await (const object of this.valuePromises()) {
@@ -365,12 +365,12 @@ export function start(
     get current() {
       return instance.current !== null ? instance.current[rootName] : null;
     },
-    get resolved() {
-      return instance.value;
+    get results() {
+      return instance.results;
     },
     next(event: string) {
       instance.receive(event);
-      const promise = instance.value;
+      const promise = instance.results;
       return {
         value: instance.current !== null ? instance.current[rootName] : null,
         actions: instance.actions,

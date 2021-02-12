@@ -37,7 +37,7 @@ function Loader() {
   // This is the ‘loading’ state
   function* loading() {
     // This function will be called when this state is entered.
-    // Its return value is available at `loader.resolved.fetchData`
+    // Its return value is available at `loader.results.fetchData`
     yield entry(fetchData);
     // If the promise succeeds, we will transition to the `success` state
     // If the promise fails, we will transition to the `failure` state
@@ -62,14 +62,14 @@ loader.current; // "idle"
 loader.next("FETCH");
 loader.current; // "loading"
 
-loader.resolved.then((result) => {
+loader.results.then((result) => {
   console.log("Fetched", result.fetchData);
   // Use response of fetch()
   loader.current; // "success"
 });
 
 /* Or with await: */
-// const { fetchData } = await loader.resolved;
+// const { fetchData } = await loader.results;
 // loader.current; // "success"
 ```
 
@@ -113,7 +113,7 @@ loader.current; // "idle"
 loader.next("FETCH");
 loader.current; // "loading"
 
-loader.resolved.then(([response]) => {
+loader.results.then(([response]) => {
   // Use response of fetch()
   loader.current; // "success"
 });
