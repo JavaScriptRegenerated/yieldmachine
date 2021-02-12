@@ -36,11 +36,15 @@ function Loader() {
   }
   // This is the ‘loading’ state
   function* loading() {
+    // This function will be called when this state is entered.
+    // Its return value is available at `loader.resolved.fetchData`
     yield entry(fetchData);
+    // If the promise succeeds, we will transition to the `success` state
+    // If the promise fails, we will transition to the `failure` state
     yield on("SUCCESS", success);
     yield on("FAILURE", failure);
   }
-  // States can be final
+  // States that don’t yield anything are final
   function* success() {}
   // Or they can define transitions to other states
   function* failure() {
