@@ -57,13 +57,14 @@ loader.value; // "idle"
 loader.next("FETCH");
 loader.value; // "loading"
 
-loader.resolved.then(([response]) => {
+loader.resolved.then((result) => {
+  console.log("Fetched", result.fetchData);
   // Use response of fetch()
   loader.value; // "success"
 });
 
 /* Or with await: */
-// const [response] = await loader.resolved;
+// const { fetchData } = await loader.resolved;
 // loader.value; // "success"
 ```
 

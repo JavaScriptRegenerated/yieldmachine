@@ -63,8 +63,8 @@ describe("Machine with entry and exit actions", () => {
       expect(loader.changeCount).toEqual(1);
       expect(finishedLoading).toHaveBeenCalledTimes(0);
 
-      await expect(loader.resolved).resolves.toEqual([42]);
-      await expect(Promise.resolve(transitionResult)).resolves.toEqual([42]);
+      await expect(loader.resolved).resolves.toEqual({ fetchData: 42 });
+      await expect(Promise.resolve(transitionResult)).resolves.toEqual({ fetchData: 42 });
       expect(finishedLoading).toHaveBeenCalledTimes(1);
       expect(loader.changeCount).toEqual(2);
       expect(loader.value).toEqual("success");
@@ -116,7 +116,7 @@ describe("Machine with entry and exit actions", () => {
       expect(fetch).toHaveBeenCalledTimes(2);
       expect(fetch).toHaveBeenLastCalledWith("https://example.org/");
 
-      await expect(loader.resolved).resolves.toEqual([42]);
+      await expect(loader.resolved).resolves.toEqual({ fetchData: 42 });
       expect(loader.changeCount).toEqual(4);
       expect(loader.value).toEqual("success");
     });

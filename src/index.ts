@@ -108,10 +108,10 @@ class Handlers {
     if (value.type === "entry") {
       this.entryActions.push(value);
       
-      const result = new Promise((resolve) => {
+      const resultPromise = new Promise((resolve) => {
         resolve(value.f());
-      });
-      this.promises.push(result);
+      }).then(result => ({ [value.f.name]: result }));
+      this.promises.push(resultPromise);
       
     } else if (value.type === "exit") {
       this.exitActions.push(value);
@@ -122,12 +122,13 @@ class Handlers {
     }
   }
   
-  finish(): null | Promise<Array<any>> {
+  finish(): null | Promise<Record<string, any>> {
     if (this.promises.length === 0) return null;
     
     const promise = Promise.resolve(this.promise)
       .catch(() => {})
-      .then(() => Promise.all(this.promises));
+      .then(() => Promise.all(this.promises))
+      .then(resultObjects => Object.assign({}, ...resultObjects));
     
     this.promise = promise;
     
@@ -153,7 +154,7 @@ class InternalInstance {
   private definition: (() => StateDefinition) | (() => Generator<Yielded, StateDefinition, never>)
   private parent: null | InternalInstance
   private globalHandlers = new Handlers()
-  private resolved = null as Promise<Array<any>> | null
+  private resolved = null as Promise<Record<string, any>> | null
   child: null | InternalInstance = null
   
   constructor(
@@ -194,9 +195,9 @@ class InternalInstance {
     return Array.from(this.generateActions());
   }
   
-  private async *valuePromises(): AsyncGenerator<any, void, undefined> {
+  private async *valuePromises(): AsyncGenerator<Record<string, any>, void, undefined> {
     if (this.resolved !== null) {
-      yield* await this.resolved;
+      yield await this.resolved;
     }
     if (this.child !== null) {
       yield* this.child.valuePromises();
@@ -205,14 +206,14 @@ class InternalInstance {
   
   get value(): Promise<Array<any>> {
     const build = async () => {
-      const values: Array<any> = [];
-      for await (const value of this.valuePromises()) {
-        values.push(value);
+      const objects: Array<any> = [];
+      for await (const object of this.valuePromises()) {
+        objects.push(object);
       }
-      return values;
+      return objects;
     }
     
-    return build().then(values => Promise.all(values));
+    return build().then(objects => Object.assign({}, ...objects));
   }
   
   consume(stateGenerator: (() => StateDefinition) | (() => Generator<Yielded, StateDefinition, never>)) {
