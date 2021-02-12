@@ -114,10 +114,21 @@ loader.resolved.then(([response]) => {
 });
 ```
 
+
+----
+
+## TODO
+
+- [ ] Parallel states by returning object for initial state
+- [ ] More examples!
+- [ ] Hook for React
+- [ ] Hook for Preact
+
 ----
 
 Further reading / inspiration:
 - [XState](https://xstate.js.org/)
 - [Robot](https://thisrobot.life/)
 - [Welcome to the world of Statecharts](https://statecharts.github.io/)
+- [Apache Commons guide to SCXML](https://commons.apache.org/proper/commons-scxml/guide/scxml-documents.html)
 - [PingPong in P](https://github.com/p-org/P/wiki/PingPong-program)
