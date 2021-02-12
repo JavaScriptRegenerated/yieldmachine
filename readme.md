@@ -136,5 +136,6 @@ Further reading / inspiration:
 - [XState](https://xstate.js.org/)
 - [Robot](https://thisrobot.life/)
 - [Welcome to the world of Statecharts](https://statecharts.github.io/)
+    - [Resources](https://statecharts.github.io/resources.html)
 - [Apache Commons guide to SCXML](https://commons.apache.org/proper/commons-scxml/guide/scxml-documents.html)
 - [PingPong in P](https://github.com/p-org/P/wiki/PingPong-program)
