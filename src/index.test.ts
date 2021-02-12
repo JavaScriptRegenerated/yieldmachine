@@ -47,11 +47,11 @@ describe("Machine with entry and exit actions", () => {
 
     test("sending events", async () => {
       const loader = start(Loader);
-      expect(loader.value).toEqual("idle");
+      expect(loader.current).toEqual("idle");
       expect(loader.changeCount).toEqual(0);
 
       loader.next("NOOP");
-      expect(loader.value).toEqual("idle");
+      expect(loader.current).toEqual("idle");
       expect(loader.changeCount).toEqual(0);
 
       const transitionResult = loader.next("FETCH");
@@ -59,7 +59,7 @@ describe("Machine with entry and exit actions", () => {
       expect(transitionResult.actions).toEqual([
         { type: "entry", f: fetchData },
       ]);
-      expect(loader.value).toEqual("loading");
+      expect(loader.current).toEqual("loading");
       expect(loader.changeCount).toEqual(1);
       expect(finishedLoading).toHaveBeenCalledTimes(0);
 
@@ -67,13 +67,13 @@ describe("Machine with entry and exit actions", () => {
       await expect(Promise.resolve(transitionResult)).resolves.toEqual({ fetchData: 42 });
       expect(finishedLoading).toHaveBeenCalledTimes(1);
       expect(loader.changeCount).toEqual(2);
-      expect(loader.value).toEqual("success");
+      expect(loader.current).toEqual("success");
       expect(succeeded).toHaveBeenCalledTimes(1);
 
       const transitionResult2 = loader.next("FETCH");
       // expect(transitionResult2.actions).toEqual([]);
       expect(loader.changeCount).toEqual(2);
-      expect(loader.value).toEqual("success");
+      expect(loader.current).toEqual("success");
       expect(succeeded).toHaveBeenCalledTimes(1);
 
       await loader.resolved;
@@ -87,7 +87,7 @@ describe("Machine with entry and exit actions", () => {
 
     test("sending events", async () => {
       const loader = start(Loader);
-      expect(loader.value).toEqual("idle");
+      expect(loader.current).toEqual("idle");
 
       const transitionResult = loader.next("FETCH");
       expect(fetch).toHaveBeenCalledTimes(1);
@@ -95,7 +95,7 @@ describe("Machine with entry and exit actions", () => {
       expect(transitionResult.actions).toEqual([
         { type: "entry", f: fetchData },
       ]);
-      expect(loader.value).toEqual("loading");
+      expect(loader.current).toEqual("loading");
       expect(loader.changeCount).toEqual(1);
 
       await expect(loader.resolved).rejects.toEqual(new Error("Failed!"));
@@ -103,14 +103,14 @@ describe("Machine with entry and exit actions", () => {
         new Error("Failed!")
       );
       expect(loader.changeCount).toEqual(2);
-      expect(loader.value).toEqual("failure");
+      expect(loader.current).toEqual("failure");
 
       loader.next("FETCH");
       expect(fetch).toHaveBeenCalledTimes(1);
       expect(loader.changeCount).toEqual(2);
 
       loader.next("RETRY");
-      expect(loader.value).toEqual("loading");
+      expect(loader.current).toEqual("loading");
       expect(loader.changeCount).toEqual(3);
 
       expect(fetch).toHaveBeenCalledTimes(2);
@@ -118,7 +118,7 @@ describe("Machine with entry and exit actions", () => {
 
       await expect(loader.resolved).resolves.toEqual({ fetchData: 42 });
       expect(loader.changeCount).toEqual(4);
-      expect(loader.value).toEqual("success");
+      expect(loader.current).toEqual("success");
     });
   });
 });
@@ -157,18 +157,18 @@ describe("Form Field Machine with always()", () => {
     test("sending events", () => {
       const formField = start(FormField);
       expect(formField).toBeDefined();
-      expect(formField.value).toEqual("initial");
+      expect(formField.current).toEqual("initial");
 
       formField.next("CHANGE");
-      expect(formField.value).toEqual("editing");
+      expect(formField.current).toEqual("editing");
       expect(formField.changeCount).toEqual(1);
 
       formField.next("CHANGE");
-      expect(formField.value).toEqual("editing");
+      expect(formField.current).toEqual("editing");
       expect(formField.changeCount).toEqual(1);
 
       formField.next("BLUR");
-      expect(formField.value).toEqual("valid");
+      expect(formField.current).toEqual("valid");
       expect(formField.changeCount).toEqual(3);
     });
   });
@@ -181,18 +181,18 @@ describe("Form Field Machine with always()", () => {
     test("sending events", () => {
       const formField = start(FormField);
       expect(formField).toBeDefined();
-      expect(formField.value).toEqual("initial");
+      expect(formField.current).toEqual("initial");
 
       formField.next("CHANGE");
-      expect(formField.value).toEqual("editing");
+      expect(formField.current).toEqual("editing");
       expect(formField.changeCount).toEqual(1);
 
       formField.next("CHANGE");
-      expect(formField.value).toEqual("editing");
+      expect(formField.current).toEqual("editing");
       expect(formField.changeCount).toEqual(1);
 
       formField.next("BLUR");
-      expect(formField.value).toEqual("invalid");
+      expect(formField.current).toEqual("invalid");
       expect(formField.changeCount).toEqual(3);
     });
   });
@@ -240,28 +240,28 @@ describe("Hierarchical Traffic Lights Machine", () => {
   test("sending events", () => {
     const machine = start(TrafficLights);
     expect(machine).toBeDefined();
-    expect(machine.value).toEqual("green");
+    expect(machine.current).toEqual("green");
 
     machine.next("TIMER");
-    expect(machine.value).toEqual("yellow");
+    expect(machine.current).toEqual("yellow");
     expect(machine.changeCount).toEqual(1);
 
     machine.next("TIMER");
-    // expect(machine.value).toEqual("red");
-    // expect(machine.value).toEqual(["red", "walk"]);
-    expect(machine.value).toEqual({ "red": "walk" });
+    // expect(machine.current).toEqual("red");
+    // expect(machine.current).toEqual(["red", "walk"]);
+    expect(machine.current).toEqual({ "red": "walk" });
     expect(machine.changeCount).toEqual(3);
 
     machine.next("TIMER");
-    expect(machine.value).toEqual("green");
+    expect(machine.current).toEqual("green");
     expect(machine.changeCount).toEqual(4);
     
     machine.next("POWER_RESTORED");
-    expect(machine.value).toEqual({ "red": "walk" });
+    expect(machine.current).toEqual({ "red": "walk" });
     expect(machine.changeCount).toEqual(6);
     
     machine.next("POWER_OUTAGE");
-    expect(machine.value).toEqual({ "red": "blinking" });
+    expect(machine.current).toEqual({ "red": "blinking" });
     expect(machine.changeCount).toEqual(7);
   });
 });

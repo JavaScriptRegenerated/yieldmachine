@@ -57,20 +57,20 @@ function Loader() {
 }
 
 const loader = start(Loader);
-loader.value; // "idle"
+loader.current; // "idle"
 
 loader.next("FETCH");
-loader.value; // "loading"
+loader.current; // "loading"
 
 loader.resolved.then((result) => {
   console.log("Fetched", result.fetchData);
   // Use response of fetch()
-  loader.value; // "success"
+  loader.current; // "success"
 });
 
 /* Or with await: */
 // const { fetchData } = await loader.resolved;
-// loader.value; // "success"
+// loader.current; // "success"
 ```
 
 ### Passing parameters to a machine with closures
@@ -108,14 +108,14 @@ function SpecificLoader() {
 
 // Start our specific loader machine
 const loader = start(SpecificLoader);
-loader.value; // "idle"
+loader.current; // "idle"
 
 loader.next("FETCH");
-loader.value; // "loading"
+loader.current; // "loading"
 
 loader.resolved.then(([response]) => {
   // Use response of fetch()
-  loader.value; // "success"
+  loader.current; // "success"
 });
 ```
 
@@ -125,6 +125,8 @@ loader.resolved.then(([response]) => {
 ## TODO
 
 - [ ] Parallel states by returning object for initial state
+- [ ] Assign data somehow?
+- [ ] Allow sending objects: `Event | { type: string }`
 - [ ] More examples!
 - [ ] Hook for React
 - [ ] Hook for Preact

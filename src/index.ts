@@ -73,7 +73,7 @@ export function compound(...targets: Array<StateDefinition>): Compound {
 
 export interface MachineInstance extends Iterator<null | string | Record<string, string>, void, string> {
   changeCount: number;
-  value: null | string | Record<string, string>;
+  current: null | string | Record<string, string>;
   resolved: null | Promise<Array<any>>;
   done: boolean;
   next(
@@ -362,7 +362,7 @@ export function start(
     get changeCount() {
       return changeCount;
     },
-    get value() {
+    get current() {
       return instance.current !== null ? instance.current[rootName] : null;
     },
     get resolved() {
