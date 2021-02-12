@@ -62,9 +62,8 @@ loader.current; // "idle"
 loader.next("FETCH");
 loader.current; // "loading"
 
-loader.results.then((result) => {
-  console.log("Fetched", result.fetchData);
-  // Use response of fetch()
+loader.results.then((results) => {
+  console.log("Fetched", results.fetchData); // Use response of fetch()
   loader.current; // "success"
 });
 
@@ -113,8 +112,8 @@ loader.current; // "idle"
 loader.next("FETCH");
 loader.current; // "loading"
 
-loader.results.then(([response]) => {
-  // Use response of fetch()
+loader.results.then((results) => {
+  console.log("Fetched", results.fetchData); // Use response of fetch()
   loader.current; // "success"
 });
 ```
