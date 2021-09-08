@@ -208,6 +208,7 @@ class InternalInstance {
   private parent: null | InternalInstance
   private globalHandlers = new Handlers()
   private resolved = null as Promise<Record<string, any>> | null
+  private eventAborter = new AbortController();
   child: null | InternalInstance = null
   
   constructor(
@@ -272,14 +273,17 @@ class InternalInstance {
   
   consume(stateGenerator: (() => StateDefinition) | (() => Generator<Yielded, StateDefinition, never>)) {
     for (const [event, target] of this.globalHandlers.eventsToListenTo) {
+      // Not sure if we still need this if we have abort signals, and for what versions of Node/browsers?
       target.removeEventListener(event, this);
     }
+    this.eventAborter.abort();
     
     const initialReturn = stateGenerator();
     
     this.willEnter();
 
     this.globalHandlers.reset();
+    this.eventAborter = new AbortController();
     
     if (initialReturn[Symbol.iterator]) {
       const iterator = initialReturn[Symbol.iterator]();
@@ -308,7 +312,7 @@ class InternalInstance {
       }
 
       for (const [event, target] of this.globalHandlers.eventsToListenTo) {
-        target.addEventListener(event, this);
+        target.addEventListener(event, this, { signal: this.eventAborter.signal });
       }
       
     } else if (typeof initialReturn === 'function') {
