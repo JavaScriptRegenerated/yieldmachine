@@ -36,6 +36,10 @@ The result of any `entry()` or `exit()` messages.
 
 Sends an event to the machine, transitioning if the event was recognised. Unrecognised events are ignored.
 
+### `.stop()`
+
+Cleans up the machine.
+
 
 ## Messages
 
@@ -63,7 +67,7 @@ Immediately transitions to the target state, if previous `cond()` did not pass.
 
 Listens to an `EventTarget` — for example, an HTMLElement like a button.
 
-Uses [`.addEventListener()`](https://developer.mozilla.org/en-US/docs/Web/API/EventTarget/addEventListener) to listen to the event. The listener is removed when transitioning to a different state, so no extra clean up is necessary.
+Uses [`.addEventListener()`](https://developer.mozilla.org/en-US/docs/Web/API/EventTarget/addEventListener) to listen to the event. The listener is removed when transitioning to a different state or when the machine is stopped, so no extra clean up is necessary.
 
 ```ts
 function ButtonClickListener(button: HTMLButtonElement) {
