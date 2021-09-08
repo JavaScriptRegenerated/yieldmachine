@@ -312,7 +312,7 @@ class InternalInstance {
       }
 
       for (const [event, target] of this.globalHandlers.eventsToListenTo) {
-        target.addEventListener(event, this, { signal: this.eventAborter.signal });
+        target.addEventListener(event, this, { signal: this.eventAborter.signal } as AddEventListenerOptions);
       }
       
     } else if (typeof initialReturn === 'function') {
