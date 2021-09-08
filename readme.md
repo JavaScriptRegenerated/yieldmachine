@@ -41,13 +41,23 @@ Sends an event to the machine, transitioning if the event was recognised. Unreco
 
 ### `on(eventName: string | symbol, target: GeneratorFunction)`
 
+Transitions to the target state when the given event occurs.
+
 ### `enter(action: () => undefined | unknown | Promise<unknown>)`
+
+Runs the provided function when this state is entered. If the function returns a promise, its value is made available in the `.results` property of the machine, keyed by the name of this passed function.
 
 ### `exit(action: () => undefined | unknown | Promise<unknown>)`
 
+Runs the provided function when this state is exited.
+
 ### `cond(predicate: () => boolean, target: GeneratorFunction)`
 
+Immediately transitions to the target state if the provided predicate function returns `true`.
+
 ### `always(target: GeneratorFunction)`
+
+Immediately transitions to the target state, if previous `cond()` did not pass.
 
 ### `listenTo(sender: EventTarget, eventName: string)`
 
