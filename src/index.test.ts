@@ -136,7 +136,8 @@ describe("Form Field Machine with always()", () => {
       yield on("BLUR", validating);
     }
     function* validating() {
-      yield always(cond(isValid, valid));
+      yield cond(isValid, valid);
+      // yield cond(true, invalid);
       yield always(invalid);
     }
     function* invalid() {
@@ -247,9 +248,9 @@ describe("Hierarchical Traffic Lights Machine", () => {
     expect(machine.changeCount).toEqual(1);
 
     machine.next("TIMER");
-    // expect(machine.current).toEqual("red");
-    // expect(machine.current).toEqual(["red", "walk"]);
     expect(machine.current).toEqual({ "red": "walk" });
+    // expect(machine.current).toEqual([["red", "walk"]]); // Like a Map key
+    // expect(machine.currentMap).toEqual(new Map([["red", "walk"]]));
     expect(machine.changeCount).toEqual(3);
 
     machine.next("TIMER");
@@ -265,3 +266,116 @@ describe("Hierarchical Traffic Lights Machine", () => {
     expect(machine.changeCount).toEqual(7);
   });
 });
+
+describe("Switch", () => {
+  function* Switch() {
+    function* OFF() {
+      yield on("FLICK", ON);
+    }
+    function* ON() {
+      yield on("FLICK", OFF);
+    }
+
+    return OFF;
+  }
+
+  test("sending events", () => {
+    const machine = start(Switch);
+    expect(machine).toBeDefined();
+    expect(machine.current).toEqual("OFF");
+
+    machine.next("FLICK");
+    expect(machine.current).toEqual("ON");
+    expect(machine.changeCount).toEqual(1);
+
+    machine.next("FLICK");
+    expect(machine.current).toEqual("OFF");
+    expect(machine.changeCount).toEqual(2);
+  });
+});
+
+/*describe("Counter", () => {
+  function* Counter() {
+    function* initial() {
+      yield entry(function counter() { return 0 });
+    }
+    function* positive() {
+      yield entry(function counter(n) {
+        console.log({ n });
+        return 1
+      });
+      // yield on("INCREMENT", action(function counter(n) { return n + 1 }));
+    }
+
+    // yield association(function *(events) {
+    //   let n = 0;
+    //   yield n;
+
+    //   for (const event of events()) {
+    //     if (event.type === "INCREMENT") {
+    //       n += 1;
+    //       yield n;
+    //     }
+    //   }
+    // })
+    
+    yield on("RESET", compound(initial));
+    yield on("INCREMENT", compound(positive));
+    
+    // const counter = yield reducer("counter", 0, n => n + 1);
+    // const counter = yield reducer(0, {
+    //   increment: n => n + 1,
+    //   reset: () => 0
+    // });
+    
+    // yield on("INCREMENT", counter.increment);
+    // yield on("RESET", counter.reset);
+
+    //////////
+
+    const Counter = yield atom(0);
+    yield output("counter", Counter);
+    // yield output("counter", Counter(n => n));
+    // yield output("counter", Counter, n => n);
+
+    // const Counter = yield atom(function counter() {
+    //   return 0;
+    // });
+
+    // const { increment, reset } = (yield atom(function counter() {
+    //   return 0;
+    // }))({ increment: (n) => n + 1, reset: () => 0 });
+
+    
+    yield on("INCREMENT", Counter(n => n + 1));
+    yield on("RESET", Counter(0));
+
+    // yield on("INCREMENT", counter(n => n + 1));
+    // yield on("RESET", counter(() => 0));
+
+    return initial;
+  }
+
+  test("sending events", () => {
+    const machine = start(Counter);
+    expect(machine.current).toEqual("initial");
+    expect(machine.results).resolves.toEqual({ counter: 0 });
+    
+    machine.next("INCREMENT");
+    expect(machine.current).toEqual("positive");
+    expect(machine.changeCount).toEqual(1);
+    expect(machine.results).resolves.toEqual({ counter: 1 });
+    
+    machine.next("INCREMENT");
+    expect(machine.current).toEqual("positive");
+    expect(machine.changeCount).toEqual(1);
+    expect(machine.results).resolves.toEqual({ counter: 1 });
+    
+    machine.next("RESET");
+    expect(machine.current).toEqual("initial");
+    expect(machine.changeCount).toEqual(2);
+    expect(machine.results).resolves.toEqual({ counter: 0 });
+
+    
+  });
+});*/

@@ -38,7 +38,7 @@ export interface Always {
   target: Target;
 }
 
-export type Yielded = On | Always | EntryAction | ExitAction | Call<any>;
+export type Yielded = On | Always | Cond | EntryAction | ExitAction | Call<any>;
 
 export function call<Arguments extends Array<any>>(
   f: (...args: Arguments) => void,
@@ -119,6 +119,8 @@ class Handlers {
       this.eventsMap.set(value.on, value.target);
     } else if (value.type === "always") {
       this.alwaysArray.push(value.target);
+    } else if (value.type === "cond") {
+      this.alwaysArray.push(value);
     }
   }
   
@@ -175,13 +177,9 @@ class InternalInstance {
     if (this.child === null) {
       return this.definition.name;
     } else {
+      // return [[this.definition.name], this.child.current];
       return { [this.definition.name]: this.child.current };
     }
-    // if (this.child === null) {
-    //   return null;
-    // }
-    // 
-    // return this.child.definition.name;
   }
   
   private *generateActions(): Generator<EntryAction, void, undefined> {
@@ -214,6 +212,7 @@ class InternalInstance {
     }
     
     return build().then(objects => Object.assign({}, ...objects));
+    // return build().then(pairs => Object.fromEntries(pairs as any));
   }
   
   consume(stateGenerator: (() => StateDefinition) | (() => Generator<Yielded, StateDefinition, never>)) {
