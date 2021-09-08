@@ -1,4 +1,20 @@
-import { always, compound, cond, entry, exit, on, start } from "./index";
+/**
+ * @jest-environment jsdom
+ */
+
+import {
+  always,
+  compound,
+  cond,
+  entry,
+  exit,
+  on,
+  listenTo,
+  send,
+  start,
+} from "./index";
+
+test("node version " + process.version, () => {});
 
 const fetch = jest.fn();
 beforeEach(fetch.mockClear);
@@ -64,7 +80,9 @@ describe("Machine with entry and exit actions", () => {
       expect(finishedLoading).toHaveBeenCalledTimes(0);
 
       await expect(loader.results).resolves.toEqual({ fetchData: 42 });
-      await expect(Promise.resolve(transitionResult)).resolves.toEqual({ fetchData: 42 });
+      await expect(Promise.resolve(transitionResult)).resolves.toEqual({
+        fetchData: 42,
+      });
       expect(finishedLoading).toHaveBeenCalledTimes(1);
       expect(loader.changeCount).toEqual(2);
       expect(loader.current).toEqual("success");
@@ -130,7 +148,7 @@ describe.skip("Fetch with abort signal", () => {
   }
 
   function Loader() {
-    const aborterKey = Symbol('aborter');
+    const aborterKey = Symbol("aborter");
     // yield register(aborterKey, () => new AbortController());
     // yield register(function aborter() { return new AbortController() });
 
@@ -188,7 +206,9 @@ describe.skip("Fetch with abort signal", () => {
       expect(finishedLoading).toHaveBeenCalledTimes(0);
 
       await expect(loader.results).resolves.toEqual({ fetchData: 42 });
-      await expect(Promise.resolve(transitionResult)).resolves.toEqual({ fetchData: 42 });
+      await expect(Promise.resolve(transitionResult)).resolves.toEqual({
+        fetchData: 42,
+      });
       expect(finishedLoading).toHaveBeenCalledTimes(1);
       expect(loader.changeCount).toEqual(2);
       expect(loader.current).toEqual("success");
@@ -372,7 +392,7 @@ describe("Hierarchical Traffic Lights Machine", () => {
     expect(machine.changeCount).toEqual(1);
 
     machine.next("TIMER");
-    expect(machine.current).toEqual({ "red": "walk" });
+    expect(machine.current).toEqual({ red: "walk" });
     // expect(machine.current).toEqual([["red", "walk"]]); // Like a Map key
     // expect(machine.currentMap).toEqual(new Map([["red", "walk"]]));
     expect(machine.changeCount).toEqual(3);
@@ -380,19 +400,19 @@ describe("Hierarchical Traffic Lights Machine", () => {
     machine.next("TIMER");
     expect(machine.current).toEqual("green");
     expect(machine.changeCount).toEqual(4);
-    
+
     machine.next("POWER_RESTORED");
-    expect(machine.current).toEqual({ "red": "walk" });
+    expect(machine.current).toEqual({ red: "walk" });
     expect(machine.changeCount).toEqual(6);
-    
+
     machine.next("POWER_OUTAGE");
-    expect(machine.current).toEqual({ "red": "blinking" });
+    expect(machine.current).toEqual({ red: "blinking" });
     expect(machine.changeCount).toEqual(7);
   });
 });
 
 describe("Switch", () => {
-  function* Switch() {
+  function Switch() {
     function* OFF() {
       yield on("FLICK", ON);
     }
@@ -419,9 +439,9 @@ describe("Switch", () => {
 });
 
 describe("Switch with symbol messages", () => {
-  const FLICK = Symbol('FLICK');
+  const FLICK = Symbol("FLICK");
 
-  function* Switch() {
+  function Switch() {
     function* OFF() {
       yield on(FLICK, ON);
     }
@@ -445,9 +465,125 @@ describe("Switch with symbol messages", () => {
     expect(machine.current).toEqual("OFF");
     expect(machine.changeCount).toEqual(2);
 
-    machine.next(Symbol('will be ignored'));
+    machine.next(Symbol("will be ignored"));
     expect(machine.current).toEqual("OFF");
     expect(machine.changeCount).toEqual(2);
+  });
+});
+
+describe("Wrapping AbortController as a state machine", () => {
+  function AbortSender(controller: AbortController) {
+    function* initial() {
+      yield cond(controller.signal.aborted, aborted);
+      yield on("abort", aborted);
+    }
+    function* aborted() {
+      // yield entry(controller.abort.bind(controller));
+      yield entry(function abort() {
+        controller.abort();
+      });
+    }
+
+    return initial;
+  }
+
+  function AbortListener(controller: AbortController) {
+    function* initial() {
+      if (controller.signal.aborted) {
+        yield always(aborted);
+      } else {
+        yield on("abort", aborted);
+        yield listenTo(controller.signal, "abort");
+      }
+    }
+    function* aborted() {}
+
+    return initial;
+  }
+
+  function AbortOwner() {
+    // const controllerKey = Symbol('AbortController');
+    function controller() {
+      return new AbortController();
+    }
+
+    function* initial() {
+      yield entry(controller);
+      yield on("abort", aborted);
+    }
+    function* aborted() {
+      yield entry(send(controller, "abort", []));
+    }
+
+    return initial;
+  }
+
+  describe("AbortSender", () => {
+    it("is already aborted if passed controller is aborted", () => {
+      const aborter = new AbortController();
+      aborter.abort();
+      const machine = start(AbortSender.bind(null, aborter));
+      expect(machine.current).toEqual("aborted");
+      expect(machine.changeCount).toEqual(0);
+    });
+
+    it("tells AbortController to abort", () => {
+      const aborter = new AbortController();
+      const machine = start(AbortSender.bind(null, aborter));
+
+      expect(machine.current).toEqual("initial");
+      expect(machine.changeCount).toEqual(0);
+
+      expect(aborter.signal.aborted).toBe(false);
+
+      machine.next("abort");
+      expect(machine.current).toEqual("aborted");
+      expect(machine.changeCount).toEqual(1);
+
+      expect(aborter.signal.aborted).toBe(true);
+    });
+  });
+
+  describe("AbortListener", () => {
+    it("is already aborted if passed controller is aborted", () => {
+      const aborter = new AbortController();
+      aborter.abort();
+      const machine = start(AbortListener.bind(null, aborter));
+      expect(machine.current).toEqual("aborted");
+      expect(machine.changeCount).toEqual(0);
+    });
+
+    it("listens when AbortController aborts", () => {
+      const aborter = new AbortController();
+      const machine = start(AbortListener.bind(null, aborter));
+
+      expect(machine.current).toEqual("initial");
+      expect(machine.changeCount).toEqual(0);
+      expect(aborter.signal.aborted).toBe(false);
+
+      aborter.abort();
+      expect(machine.current).toEqual("aborted");
+      expect(machine.changeCount).toEqual(1);
+    });
+  });
+
+  describe("AbortOwner", () => {
+    it("aborts", async () => {
+      const machine = start(AbortOwner);
+
+      expect(machine.current).toEqual("initial");
+      expect(machine.changeCount).toEqual(0);
+
+      const { controller } = await machine.results as { controller: AbortController };
+      expect(controller).toBeInstanceOf(AbortController);
+      expect(controller.signal.aborted).toBe(false);
+      
+      machine.next("abort");
+      expect(machine.current).toEqual("aborted");
+      expect(machine.changeCount).toEqual(1);
+
+      expect(controller.signal.aborted).toBe(true);
+    });
   });
 });
 

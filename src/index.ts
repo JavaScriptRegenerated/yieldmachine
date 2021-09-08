@@ -1,3 +1,4 @@
+// TODO: remove? Replaced by send?
 export interface Call<A extends Array<any>> {
   type: "call";
   f: (...args: A) => void;
@@ -11,6 +12,7 @@ export interface ActionBody {
 export interface EntryAction {
   type: "entry";
   f: ActionBody;
+  message?: [string | symbol, any[]];
 }
 export interface ExitAction {
   type: "exit";
@@ -20,7 +22,7 @@ export interface ExitAction {
 export type StateDefinition = () => Generator<Yielded, any, unknown>;
 export interface Cond {
   type: "cond";
-  cond: Function;
+  cond: Function | boolean;
   target: StateDefinition;
 }
 export interface Compound {
@@ -33,12 +35,30 @@ export interface On {
   on: string | symbol;
   target: Target;
 }
+
+export interface ListenTo {
+  type: "listenTo";
+  eventName: string;
+  sender: EventTarget
+}
 export interface Always {
   type: "always";
   target: Target;
 }
 
-export type Yielded = On | Always | Cond | EntryAction | ExitAction | Call<any>;
+export interface Send<Method extends string | symbol, Arguments extends any[]> {
+  type: "send";
+  // targetName: string | symbol;
+  target: () => Record<Method, (...args: Arguments) => void>;
+  method: Method;
+  args: Arguments;
+}
+
+export type Yielded = On | Always | Cond | EntryAction | ExitAction | ListenTo | Call<any>;
+
+export function on<Event extends string | symbol>(event: Event, target: Target): On {
+  return { type: "on", on: event, target };
+}
 
 export function call<Arguments extends Array<any>>(
   f: (...args: Arguments) => void,
@@ -47,23 +67,31 @@ export function call<Arguments extends Array<any>>(
   return { type: "call", f, args };
 }
 
-export function entry(f: ActionBody): EntryAction {
-  return { type: "entry", f };
+export function entry(f: ActionBody | Send<string, any[]>): EntryAction {
+  if (typeof f === 'function') {
+    return { type: "entry", f };
+  } else {
+    return { type: "entry", f: f.target, message: [f.method, f.args] };
+  }
 }
 
 export function exit(f: ActionBody): ExitAction {
   return { type: "exit", f };
 }
 
-export function on<Event extends string | symbol>(event: Event, target: Target): On {
-  return { type: "on", on: event, target };
+export function listenTo<Event extends string>(sender: EventTarget, eventName: Event): ListenTo {
+  return { type: "listenTo", sender, eventName };
+}
+
+export function send<Method extends string | symbol, Arguments extends any[]>(target: () => Record<Method, (...args: Arguments) => void>, method: Method, args: Arguments): Send<Method, Arguments> {
+  return { type: "send", target, method, args };
 }
 
 export function always(target: Target): Always {
   return { type: "always", target };
 }
 
-export function cond(cond: () => boolean, target: StateDefinition): Cond {
+export function cond(cond: (() => boolean) | boolean, target: StateDefinition): Cond {
   return { type: "cond", cond, target };
 }
 
@@ -71,10 +99,10 @@ export function compound(...targets: Array<StateDefinition>): Compound {
   return { type: "compound", targets };
 }
 
-export interface MachineInstance extends Iterator<null | string | Record<string, string>, void, string> {
+export interface MachineInstance extends Iterator<null | string | Record<string, string>, void, string | symbol> {
   changeCount: number;
   current: null | string | Record<string, string>;
-  results: null | Promise<Array<any>>;
+  results: null | Promise<unknown>;
   done: boolean;
   next(
     ...args: [string | symbol]
@@ -89,8 +117,10 @@ class Handlers {
   private alwaysArray = new Array<Target>();
   private entryActions = [] as Array<EntryAction>;
   private exitActions = [] as Array<ExitAction>;
-  private promises = [] as Array<Promise<any>>;
-  private promise: null | Promise<Array<any>> = null;
+  private promises = [] as Array<Promise<unknown> | unknown>;
+  private actionResults = new Map<string | symbol, unknown>();
+  private promise: null | Promise<Array<unknown>> = null;
+  public readonly eventsToListenTo = new Array<[string, EventTarget]>();
   
   *actions(): Generator<EntryAction, void, undefined> {
     yield* this.entryActions;
@@ -102,15 +132,34 @@ class Handlers {
     this.exitActions.splice(0, Infinity);
     this.alwaysArray.splice(0, Infinity);
     this.promises.splice(0, Infinity);
+    this.actionResults.clear();
+    this.eventsToListenTo.splice(0, Infinity);
   }
   
   add(value: Yielded) {
     if (value.type === "entry") {
       this.entryActions.push(value);
       
+      const skip = Symbol();
       const resultPromise = new Promise((resolve) => {
-        resolve(value.f());
-      }).then(result => ({ [value.f.name]: result }));
+        if (value.message === undefined) {
+          const result = value.f();
+          this.actionResults.set(value.f.name, result);
+          resolve(result);
+        } else {
+          const instance = this.actionResults.get(value.f.name);
+          const [method, args] = value.message;
+          if (instance != null && method in (instance as {})) {
+            (instance as {})[method].apply(instance, args);
+          }
+          resolve(skip);
+        }
+      }).then((result) => {
+        if (result !== skip) {
+          return ({ [value.f.name]: result })
+        }
+        return undefined;
+      });
       this.promises.push(resultPromise);
       
     } else if (value.type === "exit") {
@@ -121,6 +170,8 @@ class Handlers {
       this.alwaysArray.push(value.target);
     } else if (value.type === "cond") {
       this.alwaysArray.push(value);
+    } else if (value.type === 'listenTo') {
+      this.eventsToListenTo.push([value.eventName, value.sender]);
     }
   }
   
@@ -163,7 +214,7 @@ class InternalInstance {
     parent: null | InternalInstance,
     machineDefinition: (() => StateDefinition) | (() => Generator<Yielded, StateDefinition, never>),
     private callbacks: {
-      changeCount: number;
+      readonly changeCount: number;
       didChange: () => void;
       sendEvent: (event: string, changeCount?: number) => void;
     }
@@ -214,12 +265,20 @@ class InternalInstance {
     return build().then(objects => Object.assign({}, ...objects));
     // return build().then(pairs => Object.fromEntries(pairs as any));
   }
+
+  handleEvent(event: Event) {
+    this.receive(event.type);
+  }
   
   consume(stateGenerator: (() => StateDefinition) | (() => Generator<Yielded, StateDefinition, never>)) {
+    for (const [event, target] of this.globalHandlers.eventsToListenTo) {
+      target.removeEventListener(event, this);
+    }
+    
     const initialReturn = stateGenerator();
     
     this.willEnter();
-    
+
     this.globalHandlers.reset();
     
     if (initialReturn[Symbol.iterator]) {
@@ -246,6 +305,10 @@ class InternalInstance {
           .catch(() => {
             this.callbacks.sendEvent("FAILURE", snapshotCount);
           });
+      }
+
+      for (const [event, target] of this.globalHandlers.eventsToListenTo) {
+        target.addEventListener(event, this);
       }
       
     } else if (typeof initialReturn === 'function') {
@@ -294,7 +357,7 @@ class InternalInstance {
   processTarget(target: Target): boolean {
     if ('type' in target) {
       if (target.type === "cond") {
-        const result = target.cond();
+        const result = typeof target.cond === 'boolean' ? target.cond : target.cond();
         if (result) {
           if (this.parent !== null) {
             this.parent.transitionTo(target.target);
