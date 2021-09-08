@@ -57,14 +57,14 @@ Uses [`.addEventListener()`](https://developer.mozilla.org/en-US/docs/Web/API/Ev
 
 ```ts
 function ButtonClickListener(button: HTMLButtonElement) {
-    function* initial() {
-      yield on("click", clicked);
-      yield listenTo(button, "click");
-    }
-    function* clicked() {}
-
-    return initial;
+  function* initial() {
+    yield on("click", clicked);
+    yield listenTo(button, "click");
   }
+  function* clicked() {}
+
+  return initial;
+}
 
 const button = document.createElement('button');
 const machine = start(ButtonClickListener.bind(null, button));
