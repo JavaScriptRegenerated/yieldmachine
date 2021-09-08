@@ -16,6 +16,66 @@
 npm add yieldmachine
 ```
 
+## `start(machineDefinition: GeneratorFunction)`
+
+Starts a machine, transitioning to its initially returned state.
+
+### `.current: string | Record<string, unknown>`
+
+The current state of the machine. If machines were nested then an object is returned with the parent machine as the key, and its current state as the value.
+
+### `.changeCount: number`
+
+The number of times this machine has transitioned. Useful for consumers updating only when changes have been made.
+
+### `.results: Promise<unknown>`
+
+The result of any `entry()` or `exit()` messages.
+
+### `.next(eventName: string | symbol)`
+
+Sends an event to the machine, transitioning if the event was recognised. Unrecognised events are ignored.
+
+
+## Messages
+
+### `on(eventName: string | symbol, target: GeneratorFunction)`
+
+### `enter(action: () => undefined | unknown | Promise<unknown>)`
+
+### `exit(action: () => undefined | unknown | Promise<unknown>)`
+
+### `cond(predicate: () => boolean, target: GeneratorFunction)`
+
+### `always(target: GeneratorFunction)`
+
+### `listenTo(sender: EventTarget, eventName: string)`
+
+Listens to an `EventTarget` — for example, an HTMLElement like a button.
+
+Uses [`.addEventListener()`](https://developer.mozilla.org/en-US/docs/Web/API/EventTarget/addEventListener) to listen to the event. The listener is removed when transitioning to a different state, so no extra clean up is necessary.
+
+```ts
+function ButtonClickListener(button: HTMLButtonElement) {
+    function* initial() {
+      yield on("click", clicked);
+      yield listenTo(button, "click");
+    }
+    function* clicked() {}
+
+    return initial;
+  }
+
+const button = document.createElement('button');
+const machine = start(ButtonClickListener.bind(null, button));
+
+machine.current; // "initial"
+button.click();
+machine.current; // "clicked"
+button.click();
+machine.current; // "clicked"
+```
+
 ## Examples
 
 ### HTTP Loader
@@ -118,6 +178,30 @@ loader.results.then((results) => {
 });
 ```
 
+### `AbortController` wrapper
+
+```ts
+function AbortListener(controller: AbortController) {
+  function* initial() {
+    if (controller.signal.aborted) {
+      yield always(aborted);
+    } else {
+      yield on("abort", aborted);
+      yield listenTo(controller.signal, "abort");
+    }
+  }
+  function* aborted() {}
+
+  return initial;
+}
+
+const aborter = new AbortController();
+const machine = start(AbortListener.bind(null, aborter));
+
+machine.current; // "initial"
+aborter.abort();
+machine.current; // "aborted"
+```
 
 ----
 

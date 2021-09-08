@@ -79,7 +79,7 @@ export function exit(f: ActionBody): ExitAction {
   return { type: "exit", f };
 }
 
-export function listenTo<Event extends string>(sender: EventTarget, eventName: Event): ListenTo {
+export function listenTo(sender: EventTarget, eventName: string): ListenTo {
   return { type: "listenTo", sender, eventName };
 }
 
