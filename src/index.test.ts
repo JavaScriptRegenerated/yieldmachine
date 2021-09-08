@@ -568,7 +568,7 @@ describe("Wrapping AbortController as a state machine", () => {
   });
 
   describe("AbortOwner", () => {
-    it("aborts", async () => {
+    it.skip("aborts", async () => {
       const machine = start(AbortOwner);
 
       expect(machine.current).toEqual("initial");
@@ -584,6 +584,34 @@ describe("Wrapping AbortController as a state machine", () => {
 
       expect(controller.signal.aborted).toBe(true);
     });
+  });
+});
+
+describe("Button click", () => {
+  function ButtonClickListener(button: HTMLButtonElement) {
+    function* initial() {
+      yield on("click", clicked);
+      yield listenTo(button, "click");
+    }
+    function* clicked() {}
+
+    return initial;
+  }
+
+  it("listens when button clicks", () => {
+    const button = document.createElement('button');
+    const machine = start(ButtonClickListener.bind(null, button));
+
+    expect(machine.current).toEqual("initial");
+    expect(machine.changeCount).toEqual(0);
+
+    button.click();
+    expect(machine.current).toEqual("clicked");
+    expect(machine.changeCount).toEqual(1);
+
+    button.click();
+    expect(machine.current).toEqual("clicked");
+    expect(machine.changeCount).toEqual(1);
   });
 });
 
