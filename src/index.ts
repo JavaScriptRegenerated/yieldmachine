@@ -30,7 +30,7 @@ export interface Compound {
 export type Target = StateDefinition | Cond | Compound;
 export interface On {
   type: "on";
-  on: string;
+  on: string | symbol;
   target: Target;
 }
 export interface Always {
@@ -55,7 +55,7 @@ export function exit(f: ActionBody): ExitAction {
   return { type: "exit", f };
 }
 
-export function on<Event extends string>(event: Event, target: Target): On {
+export function on<Event extends string | symbol>(event: Event, target: Target): On {
   return { type: "on", on: event, target };
 }
 
@@ -77,7 +77,7 @@ export interface MachineInstance extends Iterator<null | string | Record<string,
   results: null | Promise<Array<any>>;
   done: boolean;
   next(
-    ...args: [string]
+    ...args: [string | symbol]
   ): IteratorResult<null | string | Record<string, string>> &
     PromiseLike<any> & {
       actions: Array<EntryAction | ExitAction>;
@@ -85,7 +85,7 @@ export interface MachineInstance extends Iterator<null | string | Record<string,
 }
 
 class Handlers {
-  private eventsMap = new Map<string, Target>();
+  private eventsMap = new Map<string | symbol, Target>();
   private alwaysArray = new Array<Target>();
   private entryActions = [] as Array<EntryAction>;
   private exitActions = [] as Array<ExitAction>;
@@ -147,7 +147,7 @@ class Handlers {
     this.alwaysArray.some(process);
   }
   
-  targetForEvent(event: string) {
+  targetForEvent(event: string | symbol) {
     return this.eventsMap.get(event);
   }
 }
@@ -324,7 +324,7 @@ class InternalInstance {
     return false;
   }
 
-  receive(event: string) {
+  receive(event: string | symbol) {
     this.child?.receive(event);
 
     const target = this.globalHandlers.targetForEvent(event);
@@ -367,7 +367,7 @@ export function start(
     get results() {
       return instance.results;
     },
-    next(event: string) {
+    next(event: string | symbol) {
       instance.receive(event);
       const promise = instance.results;
       return {
