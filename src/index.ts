@@ -104,12 +104,17 @@ export interface MachineInstance extends Iterator<null | string | Record<string,
   current: null | string | Record<string, string>;
   results: null | Promise<unknown>;
   done: boolean;
-  next(
-    ...args: [string | symbol]
-  ): IteratorResult<null | string | Record<string, string>> &
+  next(arg: string | symbol): IteratorResult<null | string | Record<string, string>> &
     PromiseLike<any> & {
       actions: Array<EntryAction | ExitAction>;
     };
+  stop(): void;
+}
+
+declare global {
+  interface SymbolConstructor {
+      readonly hello: symbol;
+  }
 }
 
 class Handlers {
@@ -270,21 +275,24 @@ class InternalInstance {
   handleEvent(event: Event) {
     this.receive(event.type);
   }
-  
-  consume(stateGenerator: (() => StateDefinition) | (() => Generator<Yielded, StateDefinition, never>)) {
+
+  cleanup() {
     for (const [event, target] of this.globalHandlers.eventsToListenTo) {
       // Not sure if we still need this if we have abort signals, and for what versions of Node/browsers?
       target.removeEventListener(event, this);
     }
     this.eventAborter.abort();
-    
-    const initialReturn = stateGenerator();
+
+    this.globalHandlers.reset();
+  }
+  
+  consume(stateGenerator: (() => StateDefinition) | (() => Generator<Yielded, StateDefinition, never>)) {
+    this.cleanup();
+    this.eventAborter = new AbortController();
     
     this.willEnter();
 
-    this.globalHandlers.reset();
-    this.eventAborter = new AbortController();
-    
+    const initialReturn = stateGenerator();    
     if (initialReturn[Symbol.iterator]) {
       const iterator = initialReturn[Symbol.iterator]();
       while (true) {
@@ -443,6 +451,9 @@ export function start(
         then: promise?.then.bind(promise),
         done: false,
       };
+    },
+    stop() {
+      instance.cleanup();
     },
     get done() {
       return instance.child !== null;
