@@ -616,13 +616,14 @@ describe("Button click", () => {
   });
 });
 
-describe("accumulate", () => {
+describe("accumulate()", () => {
   const messagesKey = Symbol("messages");
 
   function* Machine(eventTarget: EventTarget) {
     // yield on(new Map([["type", "error"], ["readyState", EventSource.CLOSED]]), Closed);
-    yield on("error", Closed);
-
+    yield listenTo(eventTarget, "error");
+    yield on("error", compound(Closed));
+    
     function* Open() {
       yield listenTo(eventTarget, "message");
       yield accumulate("message", messagesKey);
@@ -635,8 +636,7 @@ describe("accumulate", () => {
     }
   }
 
-  it("works", () => {
-    // const eventTarget = new AbortSignal();
+  it("appends dispatched events to array", () => {
     const eventTarget = (new AbortController()).signal;
     const machine = start(Machine.bind(null, eventTarget));
 
@@ -649,6 +649,7 @@ describe("accumulate", () => {
     const event1 = new Event("message");
     const event2 = new Event("message");
     const event3 = new Event("message");
+    const event4 = new Event("message");
 
     eventTarget.dispatchEvent(event1);
     expect(machine.current).toEqual("Open");
@@ -661,6 +662,13 @@ describe("accumulate", () => {
     eventTarget.dispatchEvent(event3);
     expect(machine.current).toEqual("Open");
     expect(machine.accumulations).toEqual(new Map([[messagesKey, [event1, event2, event3]]]));
+    
+    eventTarget.dispatchEvent(new Event("error"));
+    expect(machine.current).toEqual("Closed");
+
+    eventTarget.dispatchEvent(event4);
+    expect(machine.current).toEqual("Closed");
+    expect(machine.accumulations).toEqual(new Map());
   })
 });
 
