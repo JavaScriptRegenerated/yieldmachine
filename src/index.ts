@@ -54,7 +54,13 @@ export interface Send<Method extends string | symbol, Arguments extends any[]> {
   args: Arguments;
 }
 
-export type Yielded = On | Always | Cond | EntryAction | ExitAction | ListenTo | Call<any>;
+export interface Accumulate {
+  type: "accumulate";
+  eventName: string | symbol;
+  resultKey: symbol;
+}
+
+export type Yielded = On | Always | Cond | EntryAction | ExitAction | ListenTo | Accumulate | Call<any>;
 
 export function on<Event extends string | symbol>(event: Event, target: Target): On {
   return { type: "on", on: event, target };
@@ -99,10 +105,15 @@ export function compound(...targets: Array<StateDefinition>): Compound {
   return { type: "compound", targets };
 }
 
+export function accumulate(eventName: string | symbol, resultKey: symbol): Accumulate {
+  return { type: "accumulate", eventName, resultKey };
+}
+
 export interface MachineInstance extends Iterator<null | string | Record<string, string>, void, string | symbol> {
   changeCount: number;
   current: null | string | Record<string, string>;
   results: null | Promise<unknown>;
+  accumulations: Map<symbol | string, Array<symbol | string | Event>>;
   done: boolean;
   next(arg: string | symbol): IteratorResult<null | string | Record<string, string>> &
     PromiseLike<any> & {
@@ -120,6 +131,7 @@ class Handlers {
   private actionResults = new Map<string | symbol, unknown>();
   private promise: null | Promise<Array<unknown>> = null;
   public readonly eventsToListenTo = new Array<[string, EventTarget]>();
+  public readonly eventsToAccumulate = new Array<[string | symbol, symbol]>();
   
   *actions(): Generator<EntryAction, void, undefined> {
     yield* this.entryActions;
@@ -171,6 +183,8 @@ class Handlers {
       this.alwaysArray.push(value);
     } else if (value.type === 'listenTo') {
       this.eventsToListenTo.push([value.eventName, value.sender]);
+    } else if (value.type === 'accumulate') {
+      this.eventsToAccumulate.push([value.eventName, value.resultKey]);
     }
   }
   
@@ -207,6 +221,7 @@ class InternalInstance {
   private parent: null | InternalInstance
   private globalHandlers = new Handlers()
   private resolved = null as Promise<Record<string, any>> | null
+  private accumulations: Map<symbol | string, Array<symbol | string | Event>> = new Map();
   private eventAborter = new AbortController();
   child: null | InternalInstance = null
   
@@ -266,8 +281,19 @@ class InternalInstance {
     // return build().then(pairs => Object.fromEntries(pairs as any));
   }
 
+  *allAccumulations(): Generator<[symbol | string, Array<string | symbol | Event>]> /*: Generator<{ key: symbol | string, events: Array<string | symbol | Event> }>*/ {
+    for (const [key, events] of this.accumulations) {
+      // yield { key, events };
+      yield [key, events];
+    }
+
+    if (this.child !== null) {
+      yield *this.child.allAccumulations();
+    }
+  }
+
   handleEvent(event: Event) {
-    this.receive(event.type);
+    this.receive(event);
   }
 
   cleanup() {
@@ -393,12 +419,22 @@ class InternalInstance {
     return false;
   }
 
-  receive(event: string | symbol) {
+  receive(event: string | symbol | Event) {
     this.child?.receive(event);
 
-    const target = this.globalHandlers.targetForEvent(event);
+    const eventName = typeof event === 'string' || typeof event === 'symbol' ? event : event.type;
+
+    const target = this.globalHandlers.targetForEvent(eventName);
     if (target !== undefined) {
       this.processTarget(target);
+    }
+
+    for (const [iteratedEventName, resultKey] of this.globalHandlers.eventsToAccumulate) {
+      if (iteratedEventName === eventName) {
+        const current = this.accumulations.get(resultKey) ?? [];
+        console.log("accumulating event", eventName);
+        this.accumulations.set(resultKey, current.concat(event));
+      }
     }
   }
 }
@@ -435,6 +471,9 @@ export function start(
     },
     get results() {
       return instance.results;
+    },
+    get accumulations() {
+      return new Map(instance.allAccumulations());
     },
     next(event: string | symbol) {
       instance.receive(event);

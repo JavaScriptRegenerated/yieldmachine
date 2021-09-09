@@ -12,6 +12,7 @@ import {
   listenTo,
   send,
   start,
+  accumulate,
 } from "./index";
 
 test("node version " + process.version, () => {});
@@ -613,6 +614,54 @@ describe("Button click", () => {
     expect(machine.current).toEqual("clicked");
     expect(machine.changeCount).toEqual(1);
   });
+});
+
+describe("accumulate", () => {
+  const messagesKey = Symbol("messages");
+
+  function* Machine(eventTarget: EventTarget) {
+    // yield on(new Map([["type", "error"], ["readyState", EventSource.CLOSED]]), Closed);
+    yield on("error", Closed);
+
+    function* Open() {
+      yield listenTo(eventTarget, "message");
+      yield accumulate("message", messagesKey);
+    }
+    function* Closed() {}
+    
+    return function* Connecting() {
+      yield listenTo(eventTarget, "open");
+      yield on("open", Open);
+    }
+  }
+
+  it("works", () => {
+    // const eventTarget = new AbortSignal();
+    const eventTarget = (new AbortController()).signal;
+    const machine = start(Machine.bind(null, eventTarget));
+
+    expect(machine.current).toEqual("Connecting");
+    
+    eventTarget.dispatchEvent(new Event("open"));
+    expect(machine.current).toEqual("Open");
+    expect(machine.accumulations).toEqual(new Map());
+
+    const event1 = new Event("message");
+    const event2 = new Event("message");
+    const event3 = new Event("message");
+
+    eventTarget.dispatchEvent(event1);
+    expect(machine.current).toEqual("Open");
+    expect(machine.accumulations).toEqual(new Map([[messagesKey, [event1]]]));
+
+    eventTarget.dispatchEvent(event2);
+    expect(machine.current).toEqual("Open");
+    expect(machine.accumulations).toEqual(new Map([[messagesKey, [event1, event2]]]));
+
+    eventTarget.dispatchEvent(event3);
+    expect(machine.current).toEqual("Open");
+    expect(machine.accumulations).toEqual(new Map([[messagesKey, [event1, event2, event3]]]));
+  })
 });
 
 /*describe("Counter", () => {
