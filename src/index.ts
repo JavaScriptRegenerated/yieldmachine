@@ -111,12 +111,6 @@ export interface MachineInstance extends Iterator<null | string | Record<string,
   stop(): void;
 }
 
-declare global {
-  interface SymbolConstructor {
-      readonly hello: symbol;
-  }
-}
-
 class Handlers {
   private eventsMap = new Map<string | symbol, Target>();
   private alwaysArray = new Array<Target>();
