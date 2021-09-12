@@ -79,9 +79,10 @@ machine.current; // "Off"
 
 - Generator Functions are a built-in feature of JavaScript and TypeScript.
 - They have built-in syntax highlighting, autocompletion, and general rich language support in editors like Visual Studio Code.
-- Our states are represented by actual JavaScript functions. This means if we pass a state that’s either spelled incorrectly or isn’t in scope, our editor will tell us.
-- Generator Functions can be reused, composed, and partially applied like any function. This increases the modularity and reuse of our machine parts.
-- Our states use the name of the function.
+- Our states are represented by actual JavaScript functions.
+  - This means if we pass a state that’s either spelled incorrectly or isn’t in scope, our editor will tell us.
+  - Our states use the name of the function.
+  - Generator Functions can be reused, composed, and partially applied like any function. This increases the modularity and reuse of our machine parts.
 - Coming soon: our machine definitions can be serialized and deserialized. This means they could be generated on a back-end and sent to the front-end. They could be stored away in a database. They could even be generated dynamically on the fly.
 
 ## Documentation
