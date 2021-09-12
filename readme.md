@@ -20,6 +20,19 @@ npm add yieldmachine
 
 Starts a machine, transitioning to its initially returned state.
 
+```ts
+function Switch() {
+  function* Off() {
+    yield on("FLICK", On);
+  }
+  function* On() {
+    yield on("FLICK", Off);
+  }
+
+  return Off;
+}
+```
+
 ### `.current: string | Record<string, unknown>`
 
 The current state of the machine. If machines were nested then an object is returned with the parent machine as the key, and its current state as the value.
@@ -47,13 +60,94 @@ Cleans up the machine.
 
 Transitions to the target state when the given event occurs.
 
+```ts
+import { on, start } from "yieldmachine";
+
+function Switch() {
+  function* Off() {
+    yield on("FLICK", On);
+    yield on("TOGGLE", On);
+  }
+  function* On() {
+    yield on("FLICK", Off);
+    yield on("TOGGLE", Off);
+  }
+
+  return Off;
+}
+
+const machine = start(Switch);
+machine.current; // "Off"
+machine.next("FLICK");
+machine.current; // "On"
+machine.next("TOGGLE");
+machine.current; // "Off"
+```
+
 ### `enter(action: () => undefined | unknown | Promise<unknown>)`
 
 Runs the provided function when this state is entered. If the function returns a promise, its value is made available in the `.results` property of the machine, keyed by the name of this passed function.
 
+```ts
+import { start, on, enter } from "yieldmachine";
+
+let onCount = 0;
+function recordOn() {
+  onCount++;
+}
+
+function Switch() {
+  function* Off() {
+    yield on("FLICK", On);
+  }
+  function* On() {
+    yield enter(recordOn);
+    yield on("FLICK", Off);
+  }
+
+  return Off;
+}
+
+const machine = start(Switch);
+machine.next("FLICK");
+console.log(recordOn, machine.current); // 1, "ON"
+machine.next("FLICK");
+console.log(recordOn, machine.current); // 1, "OFF"
+machine.next("FLICK");
+console.log(recordOn, machine.current); // 2, "ON"
+```
+
 ### `exit(action: () => undefined | unknown | Promise<unknown>)`
 
 Runs the provided function when this state is exited.
+
+```ts
+import { start, on, exit } from "yieldmachine";
+
+let lastSessionEnded = null;
+function recordSessionEnd() {
+  lastSessionEnded = new Date();
+}
+
+function Session() {
+  function* SignedOut() {
+    yield on("AUTHENTICATE", SignedIn);
+  }
+  function* SignedIn() {
+    yield exit(recordSessionEnd);
+    yield on("LOG_OFF", SignedOut);
+  }
+
+  return SignedOut;
+}
+
+const machine = start(Switch);
+console.log(lastSessionEnded, machine.current); // null, "SignedOut"
+machine.next("AUTHENTICATE");
+console.log(lastSessionEnded, machine.current); // null, "SignedIn"
+machine.next("LOG_OFF");
+console.log(lastSessionEnded, machine.current); // (current time), "SignedOut"
+```
 
 ### `cond(predicate: () => boolean, target: GeneratorFunction)`
 
