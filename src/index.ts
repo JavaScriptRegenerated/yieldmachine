@@ -437,6 +437,7 @@ class InternalInstance {
       if (iteratedEventName === eventName) {
         const current = this.accumulations.get(resultKey) ?? [];
         this.accumulations.set(resultKey, current.concat(event));
+        this.callbacks.didChangeAccumulations();
       }
     }
   }
