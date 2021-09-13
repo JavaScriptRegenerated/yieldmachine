@@ -110,16 +110,17 @@ export function accumulate(eventName: string | symbol, resultKey: symbol): Accum
 }
 
 export interface MachineInstance extends Iterator<null | string | Record<string, string>, void, string | symbol> {
-  changeCount: number;
-  current: null | string | Record<string, string>;
-  results: null | Promise<unknown>;
-  accumulations: Map<symbol | string, Array<symbol | string | Event>>;
-  done: boolean;
+  readonly changeCount: number;
+  readonly current: null | string | Record<string, string>;
+  readonly results: null | Promise<unknown>;
+  readonly accumulations: Map<symbol | string, Array<symbol | string | Event>>;
+  readonly done: boolean;
+  readonly signal: AbortSignal;
   next(arg: string | symbol): IteratorResult<null | string | Record<string, string>> &
     PromiseLike<any> & {
       actions: Array<EntryAction | ExitAction>;
     };
-  stop(): void;
+  abort(): void;
 }
 
 class Handlers {
@@ -230,7 +231,9 @@ class InternalInstance {
     machineDefinition: (() => StateDefinition) | (() => Generator<Yielded, StateDefinition, never>),
     private callbacks: {
       readonly changeCount: number;
-      didChange: () => void;
+      willChangeState: () => void;
+      didChangeState: () => void;
+      didChangeAccumulations: () => void;
       sendEvent: (event: string, changeCount?: number) => void;
     }
   ) {
@@ -353,10 +356,11 @@ class InternalInstance {
   }
   
   willEnter() {
-    this.callbacks.didChange();
+    this.callbacks.willChangeState();
   }
   
   didEnter() {
+    this.callbacks.didChangeState();
     this.globalHandlers.runAlways(target => this.processTarget(target));
   }
   
@@ -432,7 +436,6 @@ class InternalInstance {
     for (const [iteratedEventName, resultKey] of this.globalHandlers.eventsToAccumulate) {
       if (iteratedEventName === eventName) {
         const current = this.accumulations.get(resultKey) ?? [];
-        console.log("accumulating event", eventName);
         this.accumulations.set(resultKey, current.concat(event));
       }
     }
@@ -443,6 +446,12 @@ export function start(
   machine: (() => StateDefinition) | (() => Generator<Yielded, StateDefinition, never>)
 ): MachineInstance {
   let changeCount = -1;
+  const aborter = new AbortController();
+  const signal = aborter.signal;
+
+  signal.addEventListener('abort', () => {
+    instance.cleanup();
+  }, { once: true });
   
   const rootName = machine.name;
   const instance: InternalInstance = new InternalInstance(
@@ -450,7 +459,15 @@ export function start(
     machine,
     {
       get changeCount() { return changeCount },
-      didChange() { changeCount += 1 },
+      willChangeState() {
+        changeCount += 1;
+      },
+      didChangeState() {
+        signal.dispatchEvent(new Event('StateChanged'));
+      },
+      didChangeAccumulations() {
+        signal.dispatchEvent(new Event('AccumulationsChanged'));
+      },
       sendEvent(event, snapshotCount) {
         if (typeof snapshotCount === "number" && snapshotCount !== changeCount) {
           return;
@@ -469,6 +486,9 @@ export function start(
     get current() {
       return instance.current !== null ? instance.current[rootName] : null;
     },
+    get signal() {
+      return signal;
+    },
     get results() {
       return instance.results;
     },
@@ -485,8 +505,8 @@ export function start(
         done: false,
       };
     },
-    stop() {
-      instance.cleanup();
+    abort() {
+      aborter.abort();
     },
     get done() {
       return instance.child !== null;

@@ -2,8 +2,8 @@
   // see https://www.typescriptlang.org/tsconfig to better understand tsconfigs
   "include": ["src", "types"],
   "compilerOptions": {
-    "module": "esnext",
-    "target": "ES2019",
+    "module": "ESNext",
+    "target": "ESNext",
     "lib": ["dom", "ES2019"],
     "importHelpers": true,
     // output .d.ts declaration files for consumers

@@ -414,27 +414,27 @@ describe("Hierarchical Traffic Lights Machine", () => {
 
 describe("Switch", () => {
   function Switch() {
-    function* Off() {
-      yield on("FLICK", On);
+    function* OFF() {
+      yield on("FLICK", ON);
     }
-    function* On() {
-      yield on("FLICK", Off);
+    function* ON() {
+      yield on("FLICK", OFF);
     }
 
-    return Off;
+    return OFF;
   }
 
   test("sending events", () => {
     const machine = start(Switch);
     expect(machine).toBeDefined();
-    expect(machine.current).toEqual("Off");
+    expect(machine.current).toEqual("OFF");
 
     machine.next("FLICK");
-    expect(machine.current).toEqual("On");
+    expect(machine.current).toEqual("ON");
     expect(machine.changeCount).toEqual(1);
 
     machine.next("FLICK");
-    expect(machine.current).toEqual("Off");
+    expect(machine.current).toEqual("OFF");
     expect(machine.changeCount).toEqual(2);
   });
 });
