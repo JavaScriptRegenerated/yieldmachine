@@ -424,7 +424,7 @@ describe("Switch", () => {
     return OFF;
   }
 
-  test("sending events", () => {
+  it("changes state and change count", () => {
     const machine = start(Switch);
     expect(machine).toBeDefined();
     expect(machine.current).toEqual("OFF");
@@ -436,6 +436,30 @@ describe("Switch", () => {
     machine.next("FLICK");
     expect(machine.current).toEqual("OFF");
     expect(machine.changeCount).toEqual(2);
+  });
+
+  it("emits events to signal", () => {
+    const machine = start(Switch);
+    expect(machine).toBeDefined();
+    expect(machine.signal).toBeInstanceOf(AbortSignal);
+
+    const eventListener = jest.fn();
+    machine.signal.addEventListener("StateChanged", eventListener);
+
+    machine.next("FLICK");
+    expect(machine.current).toEqual("ON");
+    expect(eventListener).toHaveBeenCalledTimes(1);
+    expect(eventListener).toHaveBeenLastCalledWith(expect.objectContaining({ type: "StateChanged" }));
+    
+    machine.next("FLICK");
+    expect(machine.current).toEqual("OFF");
+    expect(eventListener).toHaveBeenCalledTimes(2);
+    
+    machine.signal.removeEventListener("StateChanged", eventListener);
+
+    machine.next("FLICK");
+    expect(machine.current).toEqual("ON");
+    expect(eventListener).toHaveBeenCalledTimes(2);
   });
 });
 
