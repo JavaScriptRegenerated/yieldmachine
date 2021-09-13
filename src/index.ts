@@ -445,31 +445,40 @@ class InternalInstance {
 export function start(
   machine: (() => StateDefinition) | (() => Generator<Yielded, StateDefinition, never>)
 ): MachineInstance {
-  let changeCount = -1;
-  const aborter = new AbortController();
-  const signal = aborter.signal;
+  let _changeCount = -1;
+  let _aborter: null | AbortController = null;
+  function ensureAborter(): AbortController {
+    if (_aborter !== null) return _aborter;
 
-  signal.addEventListener('abort', () => {
-    instance.cleanup();
-  }, { once: true });
+    const newAborter = new AbortController();
+    const signal = newAborter.signal;
+
+    signal.addEventListener('abort', () => {
+      instance.cleanup();
+    }, { once: true });
+    
+    _aborter = newAborter;
+
+    return newAborter;
+  }
   
   const rootName = machine.name;
   const instance: InternalInstance = new InternalInstance(
     null,
     machine,
     {
-      get changeCount() { return changeCount },
+      get changeCount() { return _changeCount },
       willChangeState() {
-        changeCount += 1;
+        _changeCount += 1;
       },
       didChangeState() {
-        signal.dispatchEvent(new Event('StateChanged'));
+        _aborter?.signal.dispatchEvent(new Event('StateChanged'));
       },
       didChangeAccumulations() {
-        signal.dispatchEvent(new Event('AccumulationsChanged'));
+        _aborter?.signal.dispatchEvent(new Event('AccumulationsChanged'));
       },
       sendEvent(event, snapshotCount) {
-        if (typeof snapshotCount === "number" && snapshotCount !== changeCount) {
+        if (typeof snapshotCount === "number" && snapshotCount !== _changeCount) {
           return;
         }
         instance.receive(event);
@@ -477,17 +486,17 @@ export function start(
     }
   );
   
-  changeCount = 0;
+  _changeCount = 0;
 
   return {
     get changeCount() {
-      return changeCount;
+      return _changeCount;
     },
     get current() {
       return instance.current !== null ? instance.current[rootName] : null;
     },
     get signal() {
-      return signal;
+      return ensureAborter().signal;
     },
     get results() {
       return instance.results;
@@ -506,7 +515,7 @@ export function start(
       };
     },
     abort() {
-      aborter.abort();
+      ensureAborter().abort();
     },
     get done() {
       return instance.child !== null;
