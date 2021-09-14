@@ -664,11 +664,19 @@ describe("accumulate()", () => {
     const eventTarget = (new AbortController()).signal;
     const machine = start(Machine.bind(null, eventTarget));
 
+    const stateChangedListener = jest.fn();
+    const accumulationsChangedListener = jest.fn();
+    machine.signal.addEventListener("StateChanged", stateChangedListener);
+    machine.signal.addEventListener("AccumulationsChanged", accumulationsChangedListener);
+
     expect(machine.current).toEqual("Connecting");
     
     eventTarget.dispatchEvent(new Event("open"));
     expect(machine.current).toEqual("Open");
     expect(machine.accumulations).toEqual(new Map());
+    expect(stateChangedListener).toHaveBeenCalledTimes(1);
+    expect(stateChangedListener).toHaveBeenLastCalledWith(expect.objectContaining({ type: "StateChanged" }));
+    expect(accumulationsChangedListener).toHaveBeenCalledTimes(0);
 
     const event1 = new Event("message");
     const event2 = new Event("message");
@@ -678,22 +686,33 @@ describe("accumulate()", () => {
     eventTarget.dispatchEvent(event1);
     expect(machine.current).toEqual("Open");
     expect(machine.accumulations).toEqual(new Map([[messagesKey, [event1]]]));
+    expect(accumulationsChangedListener).toHaveBeenCalledTimes(1);
+    expect(accumulationsChangedListener).toHaveBeenLastCalledWith(expect.objectContaining({ type: "AccumulationsChanged" }));
 
     eventTarget.dispatchEvent(event2);
     expect(machine.current).toEqual("Open");
     expect(machine.accumulations).toEqual(new Map([[messagesKey, [event1, event2]]]));
-
+    expect(accumulationsChangedListener).toHaveBeenCalledTimes(2);
+    expect(accumulationsChangedListener).toHaveBeenLastCalledWith(expect.objectContaining({ type: "AccumulationsChanged" }));
+    
     eventTarget.dispatchEvent(event3);
     expect(machine.current).toEqual("Open");
     expect(machine.accumulations).toEqual(new Map([[messagesKey, [event1, event2, event3]]]));
+    expect(accumulationsChangedListener).toHaveBeenCalledTimes(3);
     
     eventTarget.dispatchEvent(new Event("error"));
     expect(machine.current).toEqual("Closed");
-
+    expect(machine.accumulations).toEqual(new Map());
+    expect(accumulationsChangedListener).toHaveBeenCalledTimes(3);
+    
     eventTarget.dispatchEvent(event4);
     expect(machine.current).toEqual("Closed");
     expect(machine.accumulations).toEqual(new Map());
-  })
+    expect(accumulationsChangedListener).toHaveBeenCalledTimes(4); // FIX: this should be 3
+
+    machine.signal.removeEventListener("StateChanged", stateChangedListener);
+    machine.signal.removeEventListener("AccumulationsChanged", accumulationsChangedListener);
+  });
 });
 
 /*describe("Counter", () => {

@@ -146,6 +146,7 @@ class Handlers {
     this.promises.splice(0, Infinity);
     this.actionResults.clear();
     this.eventsToListenTo.splice(0, Infinity);
+    this.eventsToAccumulate.splice(0, Infinity);
   }
   
   add(value: Yielded) {
