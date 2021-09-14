@@ -1,7 +1,7 @@
 {
   "name": "yieldmachine",
   "amdName": "yieldmachine",
-  "version": "0.4.6",
+  "version": "0.4.7",
   "description": "Declarative state machines using generator functions",
   "source": "src/index.ts",
   "main": "dist/yieldmachine.js",
