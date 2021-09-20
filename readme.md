@@ -1,6 +1,6 @@
 <div align="center">
   <h1>👑 ⚙️ Yield Machine</h1>
-  <p>Define State Machines using Generator Functions</p>
+  <p>Composable State Machines using Generator Functions</p>
   <div>
     <a href="https://bundlephobia.com/result?p=yieldmachine">
       <img src="https://badgen.net/bundlephobia/minzip/yieldmachine@0.4.1" alt="minified and gzipped size">
@@ -9,6 +9,14 @@
     </a>
   </div>
 </div>
+
+## Overview
+
+- Define state machine components using generators functions.
+- States can be reused.
+- Nest machines inside one another.
+- Use native JavaScript features such as Promise, AbortSignal, and EventTarget.
+- Conform various stateful things such as offline status, promises, fetch, IntersectionObserver, ResizeObserver. Manage these things in a consistent way with a consistent interface.
 
 ## Install
 
