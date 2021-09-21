@@ -31,7 +31,78 @@
 npm add yieldmachine
 ```
 
-## `start(machineDefinition: GeneratorFunction)`
+## Overview
+
+You define your machine using a function. For example, you could define a state machine representing a light switch. We’ll name our function `Switch`.
+
+```ts
+function Switch() {
+
+}
+```
+
+Inside you declare each state you want as a [generator function](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/function*).
+
+Our `Switch` will have two states: `Off` and `On`. We return `Off` as that’s what we want as our initial state to be — our light is off by default.
+
+```ts
+import { on, start } from "yieldmachine";
+
+function Switch() {
+  function* Off() {
+  }
+  function* On() {
+  }
+
+  return Off;
+}
+```
+
+Our `Switch` can be flicked on and off. The string `"FLICK"` is our event that will represent the flicking on and off of our switch.
+
+When our `Switch` is `Off` and it is sent a `FLICK` event, it transitions to `On`.
+
+And, when our `Switch` is `On` and it is sent a `FLICK` event, it transitions back to `Off`.
+
+```ts
+import { on, start } from "yieldmachine";
+
+function Switch() {
+  function* Off() {
+    yield on("FLICK", On);
+  }
+  function* On() {
+    yield on("FLICK", Off);
+  }
+
+  return Off;
+}
+```
+
+Now our machine is ready to be run. We pass our `Switch` to the `start` function we import from `yieldmachine`, and it will run an instance of our machine. And as we send it `"FLICK"` message, you’ll see the `current` state of our machine instance change.
+
+```ts
+const machine = start(Switch);
+machine.current; // "Off"
+machine.next("FLICK");
+machine.current; // "On"
+machine.next("TOGGLE");
+machine.current; // "Off"
+```
+
+## Benefits of Generator Functions
+
+- Generator Functions are a built-in feature of JavaScript and TypeScript.
+- They have built-in syntax highlighting, autocompletion, and general rich language support in editors like Visual Studio Code.
+- Our states are represented by actual JavaScript functions.
+  - This means if we pass a state that’s either spelled incorrectly or isn’t in scope, our editor will tell us.
+  - Our states use the name of the function.
+  - Generator Functions can be reused, composed, and partially applied like any function. This increases the modularity and reuse of our machine parts.
+- Coming soon: our machine definitions can be serialized and deserialized. This means they could be generated on a back-end and sent to the front-end. They could be stored away in a database. They could even be generated dynamically on the fly.
+
+## Documentation
+
+### `start(machineDefinition: Function | GeneratorFunction)`
 
 Starts a machine, transitioning to its initially returned state.
 
@@ -62,13 +133,94 @@ Cleans up the machine.
 
 Transitions to the target state when the given event occurs.
 
+```ts
+import { on, start } from "yieldmachine";
+
+function Switch() {
+  function* Off() {
+    yield on("FLICK", On);
+    yield on("TOGGLE", On);
+  }
+  function* On() {
+    yield on("FLICK", Off);
+    yield on("TOGGLE", Off);
+  }
+
+  return Off;
+}
+
+const machine = start(Switch);
+machine.current; // "Off"
+machine.next("FLICK");
+machine.current; // "On"
+machine.next("TOGGLE");
+machine.current; // "Off"
+```
+
 ### `enter(action: () => undefined | unknown | Promise<unknown>)`
 
 Runs the provided function when this state is entered. If the function returns a promise, its value is made available in the `.results` property of the machine, keyed by the name of this passed function.
 
+```ts
+import { start, on, enter } from "yieldmachine";
+
+let onCount = 0;
+function recordOn() {
+  onCount++;
+}
+
+function Switch() {
+  function* Off() {
+    yield on("FLICK", On);
+  }
+  function* On() {
+    yield enter(recordOn);
+    yield on("FLICK", Off);
+  }
+
+  return Off;
+}
+
+const machine = start(Switch);
+machine.next("FLICK");
+console.log(recordOn, machine.current); // 1, "ON"
+machine.next("FLICK");
+console.log(recordOn, machine.current); // 1, "OFF"
+machine.next("FLICK");
+console.log(recordOn, machine.current); // 2, "ON"
+```
+
 ### `exit(action: () => undefined | unknown | Promise<unknown>)`
 
 Runs the provided function when this state is exited.
+
+```ts
+import { start, on, exit } from "yieldmachine";
+
+let lastSessionEnded = null;
+function recordSessionEnd() {
+  lastSessionEnded = new Date();
+}
+
+function Session() {
+  function* SignedOut() {
+    yield on("AUTHENTICATE", SignedIn);
+  }
+  function* SignedIn() {
+    yield exit(recordSessionEnd);
+    yield on("LOG_OFF", SignedOut);
+  }
+
+  return SignedOut;
+}
+
+const machine = start(Switch);
+console.log(lastSessionEnded, machine.current); // null, "SignedOut"
+machine.next("AUTHENTICATE");
+console.log(lastSessionEnded, machine.current); // null, "SignedIn"
+machine.next("LOG_OFF");
+console.log(lastSessionEnded, machine.current); // (current time), "SignedOut"
+```
 
 ### `cond(predicate: () => boolean, target: GeneratorFunction)`
 
