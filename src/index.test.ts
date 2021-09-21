@@ -13,9 +13,20 @@ import {
   send,
   start,
   accumulate,
+  onceStateChangesTo,
 } from "./index";
 
 test("node version " + process.version, () => {});
+
+function useEach(work: () => () => void) {
+  let cleanup: null | (() => void) = null;
+  beforeEach(() => {
+    cleanup = work();
+  })
+  afterEach(() => {
+    cleanup?.call(null);
+  });
+}
 
 const fetch = jest.fn();
 beforeEach(fetch.mockClear);
@@ -449,11 +460,12 @@ describe("Switch", () => {
     machine.next("FLICK");
     expect(machine.current).toEqual("ON");
     expect(eventListener).toHaveBeenCalledTimes(1);
-    expect(eventListener).toHaveBeenLastCalledWith(expect.objectContaining({ type: "StateChanged" }));
+    expect(eventListener).toHaveBeenLastCalledWith(expect.objectContaining({ type: "StateChanged", value: "ON" }));
     
     machine.next("FLICK");
     expect(machine.current).toEqual("OFF");
     expect(eventListener).toHaveBeenCalledTimes(2);
+    expect(eventListener).toHaveBeenLastCalledWith(expect.objectContaining({ type: "StateChanged", value: "OFF" }));
     
     machine.signal.removeEventListener("StateChanged", eventListener);
 
@@ -461,6 +473,22 @@ describe("Switch", () => {
     expect(machine.current).toEqual("ON");
     expect(eventListener).toHaveBeenCalledTimes(2);
   });
+
+  it("can produce a promise that resolves when state changes to ON", async () => {
+    const machine = start(Switch);
+
+    const whenPromiseResolves = jest.fn();
+    const aborter = new AbortController();
+    const onPromise = onceStateChangesTo(machine, "ON", aborter.signal)
+    onPromise.then(whenPromiseResolves)
+
+    await null;
+    expect(whenPromiseResolves).toHaveBeenCalledTimes(0);
+
+    machine.next("FLICK");
+    await null;
+    expect(whenPromiseResolves).toHaveBeenCalledTimes(1);
+  })
 });
 
 describe("Switch with symbol messages", () => {
@@ -493,6 +521,71 @@ describe("Switch with symbol messages", () => {
     machine.next(Symbol("will be ignored"));
     expect(machine.current).toEqual("OFF");
     expect(machine.changeCount).toEqual(2);
+  });
+});
+
+describe("Wrapping navigator online as a state machine", () => {
+  function* OfflineStatus() {
+    yield listenTo(window, "online");
+    yield listenTo(window, "offline");
+    yield on("online", compound(Online));
+    yield on("offline", compound(Offline));
+  
+    function* Online() {}
+    function* Offline() {}
+  
+    return function* Pending() {
+      yield cond(navigator.onLine, Online);
+      yield always(Offline);
+    }
+  }
+
+  describe("when online", () => {
+    useEach(() => {
+      const spy = jest.spyOn(navigator, 'onLine', 'get').mockReturnValue(true);
+      return () => spy.mockRestore();
+    });
+
+    it("is immediately in Online state", () => {
+      const machine = start(OfflineStatus);
+      expect(machine.current).toEqual("Online");
+      expect(machine.changeCount).toEqual(0);
+    });
+
+    it("reacts to offline & online events", () => {
+      const machine = start(OfflineStatus);
+      window.dispatchEvent(new Event('offline'))
+      expect(machine.current).toEqual("Offline");
+      expect(machine.changeCount).toEqual(1);
+
+      window.dispatchEvent(new Event('online'))
+      expect(machine.current).toEqual("Online");
+      expect(machine.changeCount).toEqual(2);
+    });
+  });
+
+  describe("when offline", () => {
+    useEach(() => {
+      const spy = jest.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+      return () => spy.mockRestore();
+    });
+
+    it("is immediately in Offline state", () => {
+      const machine = start(OfflineStatus);
+      expect(machine.current).toEqual("Offline");
+      expect(machine.changeCount).toEqual(0);
+    });
+
+    it("reacts to online & offline events", () => {
+      const machine = start(OfflineStatus);
+      window.dispatchEvent(new Event('online'))
+      expect(machine.current).toEqual("Online");
+      expect(machine.changeCount).toEqual(1);
+
+      window.dispatchEvent(new Event('offline'))
+      expect(machine.current).toEqual("Offline");
+      expect(machine.changeCount).toEqual(2);
+    });
   });
 });
 

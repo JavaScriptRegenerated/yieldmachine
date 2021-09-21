@@ -444,6 +444,15 @@ class InternalInstance {
   }
 }
 
+class MachineStateChangedEvent extends Event {
+  readonly value: string;
+
+  constructor(type: string, value: string) {
+    super(type)
+    this.value = value;
+  }
+}
+
 export function start(
   machine: (() => StateDefinition) | (() => Generator<Yielded, StateDefinition, never>)
 ): MachineInstance {
@@ -474,7 +483,7 @@ export function start(
         _changeCount += 1;
       },
       didChangeState() {
-        _aborter?.signal.dispatchEvent(new Event('StateChanged'));
+        _aborter?.signal.dispatchEvent(new MachineStateChangedEvent('StateChanged', getCurrent() as string));
       },
       didChangeAccumulations() {
         _aborter?.signal.dispatchEvent(new Event('AccumulationsChanged'));
@@ -487,6 +496,11 @@ export function start(
       }
     }
   );
+
+  function getCurrent() {
+    const current = instance.current;
+    return current !== null ? current[rootName] : null;
+  }
   
   _changeCount = 0;
 
@@ -495,7 +509,7 @@ export function start(
       return _changeCount;
     },
     get current() {
-      return instance.current !== null ? instance.current[rootName] : null;
+      return getCurrent();
     },
     get signal() {
       return ensureAborter().signal;
@@ -523,4 +537,14 @@ export function start(
       return instance.child !== null;
     },
   };
+}
+
+export function onceStateChangesTo(machineInstance: MachineInstance, state: string, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    machineInstance.signal.addEventListener("StateChanged", (event: MachineStateChangedEvent) => {
+      if (event.value === state) {
+        resolve();
+      }
+    }, { signal });
+  })
 }
