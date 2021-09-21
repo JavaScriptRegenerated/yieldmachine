@@ -744,6 +744,13 @@ describe("accumulate()", () => {
     function* Open() {
       yield listenTo(eventTarget, "message");
       yield accumulate("message", messagesKey);
+      // TODO:
+      // yield accumulate("message", messagesKey, function*(event, previous) {
+      //   if (previous) {
+      //     yield *previous;
+      //   }
+      //   yield event;
+      // });
     }
     function* Closed() {}
     
