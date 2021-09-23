@@ -22,7 +22,7 @@ export interface ExitAction {
 export type StateDefinition = () => Generator<Yielded, any, unknown>;
 export interface Cond {
   type: "cond";
-  cond: Function | boolean;
+  cond: ((readContext: (contextName: string | symbol) => unknown) => boolean) | boolean;
   target: StateDefinition;
 }
 export interface Compound {
@@ -60,7 +60,12 @@ export interface Accumulate {
   resultKey: symbol;
 }
 
-export type Yielded = On | Always | Cond | EntryAction | ExitAction | ListenTo | Accumulate | Call<any>;
+export interface ReadContext {
+  type: "readContext";
+  contextName: string | symbol;
+}
+
+export type Yielded = On | Always | Cond | EntryAction | ExitAction | ListenTo | ReadContext | Accumulate | Call<any>;
 
 export function on<Event extends string | symbol>(event: Event, target: Target): On {
   return { type: "on", on: event, target };
@@ -97,7 +102,12 @@ export function always(target: Target): Always {
   return { type: "always", target };
 }
 
-export function cond(cond: (() => boolean) | boolean, target: StateDefinition): Cond {
+export function cond(
+  cond:
+    | ((readContext: (contextName: string | symbol) => unknown) => boolean)
+    | boolean,
+  target: StateDefinition
+): Cond {
   return { type: "cond", cond, target };
 }
 
@@ -107,6 +117,10 @@ export function compound(...targets: Array<StateDefinition>): Compound {
 
 export function accumulate(eventName: string | symbol, resultKey: symbol): Accumulate {
   return { type: "accumulate", eventName, resultKey };
+}
+
+export function readContext(contextName: string | symbol): ReadContext {
+  return { type: "readContext", contextName };
 }
 
 export interface MachineInstance extends Iterator<null | string | Record<string, string>, void, string | symbol> {
@@ -149,7 +163,7 @@ class Handlers {
     this.eventsToAccumulate.splice(0, Infinity);
   }
   
-  add(value: Yielded) {
+  add(value: Yielded, readContext: (contextName: string | symbol) => unknown): unknown | void {
     if (value.type === "entry") {
       this.entryActions.push(value);
       
@@ -187,7 +201,10 @@ class Handlers {
       this.eventsToListenTo.push([value.eventName, value.sender]);
     } else if (value.type === 'accumulate') {
       this.eventsToAccumulate.push([value.eventName, value.resultKey]);
+    } else if (value.type === 'readContext') {
+      return readContext(value.contextName);
     }
+    return undefined;
   }
   
   finish(): null | Promise<Record<string, any>> {
@@ -236,6 +253,9 @@ class InternalInstance {
       didChangeState: () => void;
       didChangeAccumulations: () => void;
       sendEvent: (event: string, changeCount?: number) => void;
+      willHandleEvent: (event: Event) => void;
+      didHandleEvent: (event: Event) => void;
+      readContext: (contextName: string | symbol) => unknown;
     }
   ) {
     this.definition = machineDefinition;
@@ -297,7 +317,9 @@ class InternalInstance {
   }
 
   handleEvent(event: Event) {
+    this.callbacks.willHandleEvent(event);
     this.receive(event);
+    this.callbacks.didHandleEvent(event);
   }
 
   cleanup() {
@@ -319,14 +341,15 @@ class InternalInstance {
     const initialReturn = stateGenerator();    
     if (initialReturn[Symbol.iterator]) {
       const iterator = initialReturn[Symbol.iterator]();
+      let reply: unknown = undefined;
       while (true) {
-        const item = iterator.next()
+        const item = iterator.next(reply)
         if (item.done) {
           var initialGenerator = item.value;
           break;
         }
         
-        this.globalHandlers.add(item.value);
+        reply = this.globalHandlers.add(item.value, this.callbacks.readContext);
       }
       
       const promise = this.globalHandlers.finish();
@@ -394,7 +417,7 @@ class InternalInstance {
   processTarget(target: Target): boolean {
     if ('type' in target) {
       if (target.type === "cond") {
-        const result = typeof target.cond === 'boolean' ? target.cond : target.cond();
+        const result = typeof target.cond === 'boolean' ? target.cond : target.cond(this.callbacks.readContext);
         if (result) {
           if (this.parent !== null) {
             this.parent.transitionTo(target.target);
@@ -457,6 +480,7 @@ export function start(
   machine: (() => StateDefinition) | (() => Generator<Yielded, StateDefinition, never>)
 ): MachineInstance {
   let _changeCount = -1;
+  let _activeEvent: null | Event = null;
   let _aborter: null | AbortController = null;
   function ensureAborter(): AbortController {
     if (_aborter !== null) return _aborter;
@@ -493,6 +517,18 @@ export function start(
           return;
         }
         instance.receive(event);
+      },
+      willHandleEvent(event) {
+        _activeEvent = event;
+      },
+      didHandleEvent(event) {
+        _activeEvent = null;
+      },
+      readContext(key) {
+        if (key === "event") {
+          return _activeEvent;
+        }
+        return undefined;
       }
     }
   );

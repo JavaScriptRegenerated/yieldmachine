@@ -14,6 +14,7 @@ import {
   start,
   accumulate,
   onceStateChangesTo,
+  readContext,
 } from "./index";
 
 test("node version " + process.version, () => {});
@@ -707,30 +708,203 @@ describe("Wrapping AbortController as a state machine", () => {
 
 describe("Button click", () => {
   function ButtonClickListener(button: HTMLButtonElement) {
-    function* initial() {
-      yield on("click", clicked);
+    function* Initial() {
+      yield on("click", Clicked);
       yield listenTo(button, "click");
     }
-    function* clicked() {}
+    function* Clicked() {}
 
-    return initial;
+    return Initial;
   }
 
   it("listens when button clicks", () => {
     const button = document.createElement('button');
     const machine = start(ButtonClickListener.bind(null, button));
 
-    expect(machine.current).toEqual("initial");
+    expect(machine.current).toEqual("Initial");
     expect(machine.changeCount).toEqual(0);
 
     button.click();
-    expect(machine.current).toEqual("clicked");
+    expect(machine.current).toEqual("Clicked");
     expect(machine.changeCount).toEqual(1);
 
     button.click();
-    expect(machine.current).toEqual("clicked");
+    expect(machine.current).toEqual("Clicked");
     expect(machine.changeCount).toEqual(1);
   });
+});
+
+describe("FIXME: Key shortcut click highlighting too many event listeners bug", () => {
+  function KeyShortcutListener(el: HTMLElement) {
+    function* Open() {
+      yield on("keydown", OpenCheckingKey);
+      yield listenTo(el, "keydown");
+    }
+    function* OpenCheckingKey() {
+      const event: KeyboardEvent = yield readContext("event");
+      yield cond(event.key === 'Escape', Closed);
+      // yield revert();
+      yield always(Open);
+    }
+    function* Closed() {
+      yield on("keydown", ClosedCheckingKey);
+      yield listenTo(el, "keydown");
+    }
+    function* ClosedCheckingKey() {
+      const event: KeyboardEvent = yield readContext("event");
+      yield cond(event.key === 'Enter', Open);
+      // yield revert();
+      yield always(Closed);
+    }
+
+    return Closed;
+  }
+
+  it("listens when keys are pressed", () => {
+    // FIXME: there’s lots of event listeners being created!
+    const input = document.createElement('input');
+    const machine = start(KeyShortcutListener.bind(null, input));
+
+    expect(machine.current).toEqual("Closed");
+    expect(machine.changeCount).toEqual(0);
+
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+    expect(machine.current).toEqual("Open");
+    expect(machine.changeCount).toEqual(2);
+
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+    expect(machine.current).toEqual("Open");
+    expect(machine.changeCount).toEqual(6);
+
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'a' }));
+    expect(machine.current).toEqual("Open");
+    expect(machine.changeCount).toEqual(14);
+    
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    expect(machine.current).toEqual("Closed");
+    expect(machine.changeCount).toEqual(30);
+
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'a' }));
+    expect(machine.current).toEqual("Closed");
+    expect(machine.changeCount).toEqual(62);
+
+    machine.abort();
+  });
+});
+
+describe("Key shortcut cond reading event", () => {
+  function KeyShortcutListener(el: HTMLElement) {
+    function* Open() {
+      yield listenTo(el, "keydown");
+      yield on(
+        "keydown",
+        cond((readContext) => {
+          const event = readContext("event") as KeyboardEvent;
+          return event.key === "Escape";
+        }, Closed)
+      );
+    }
+    function* Closed() {
+      yield listenTo(el, "keydown");
+      yield on(
+        "keydown",
+        cond((readContext) => {
+          const event = readContext("event") as KeyboardEvent;
+          return event.key === "Enter";
+        }, Open)
+      );
+    }
+
+    return Closed;
+  }
+
+  it("listens when keys are pressed", () => {
+    const input = document.createElement('input');
+    const machine = start(KeyShortcutListener.bind(null, input));
+
+    expect(machine.current).toEqual("Closed");
+    expect(machine.changeCount).toEqual(0);
+
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+    expect(machine.current).toEqual("Open");
+    expect(machine.changeCount).toEqual(1);
+
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+    expect(machine.current).toEqual("Open");
+    expect(machine.changeCount).toEqual(1);
+
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'a' }));
+    expect(machine.current).toEqual("Open");
+    expect(machine.changeCount).toEqual(1);
+    
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    expect(machine.current).toEqual("Closed");
+    expect(machine.changeCount).toEqual(2);
+
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'a' }));
+    expect(machine.current).toEqual("Closed");
+    expect(machine.changeCount).toEqual(2);
+
+    machine.abort();
+  });
+});
+
+describe("Element focus", () => {
+  function* ButtonFocusListener(el: HTMLElement) {
+    yield listenTo(el.ownerDocument, "focusin");  
+    yield on("focusin", compound(CheckingActive));
+
+    function* Inactive() {}
+    function* Active() {}
+    function* CheckingActive() {
+      yield cond(el.ownerDocument.activeElement === el, Active);
+      yield always(Inactive);
+    }  
+
+    return CheckingActive;
+  }
+
+  it("listens when element receives and loses focus", () => {
+    const button = document.body.appendChild(document.createElement('button'));
+    const input = document.body.appendChild(document.createElement('input'));
+
+    const machine = start(ButtonFocusListener.bind(null, button));
+
+    expect(machine.current).toEqual("Inactive");
+    expect(machine.changeCount).toEqual(0);
+
+    button.focus();
+    expect(machine.current).toEqual("Active");
+    expect(machine.changeCount).toEqual(2);
+
+    button.focus();
+    expect(machine.current).toEqual("Active");
+    expect(machine.changeCount).toEqual(2);
+    
+    input.focus();
+    expect(machine.current).toEqual("Inactive");
+    expect(machine.changeCount).toEqual(4);
+
+    button.focus();
+    expect(machine.current).toEqual("Active");
+    expect(machine.changeCount).toEqual(6);
+
+    machine.abort();
+    button.remove();
+    input.remove();
+  });
+
+  it("is initially Active if element is already focused when starting", () => {
+    const button = document.body.appendChild(document.createElement('button'));
+
+    button.focus();
+    const machine = start(ButtonFocusListener.bind(null, button));
+
+    expect(machine.current).toEqual("Active");
+    expect(machine.changeCount).toEqual(0);
+
+    button.remove();
+  })
 });
 
 describe("accumulate()", () => {
