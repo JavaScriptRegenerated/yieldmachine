@@ -851,8 +851,11 @@ describe("Key shortcut cond reading event", () => {
 
 describe("Element focus", () => {
   function* ButtonFocusListener(el: HTMLElement) {
-    yield listenTo(el.ownerDocument, "focusin");  
-    yield on("focusin", compound(CheckingActive));
+    yield listenTo(el, ["blur", "focus"]);  
+    // yield listenTo(el.ownerDocument, "focusin");  
+    // yield on("focusin", compound(CheckingActive));
+    yield on("focus", compound(CheckingActive));
+    yield on("blur", compound(CheckingActive));
 
     function* Inactive() {}
     function* Active() {}
@@ -888,6 +891,10 @@ describe("Element focus", () => {
     button.focus();
     expect(machine.current).toEqual("Active");
     expect(machine.changeCount).toEqual(6);
+
+    button.blur();
+    expect(machine.current).toEqual("Inactive");
+    expect(machine.changeCount).toEqual(8);
 
     machine.abort();
     button.remove();

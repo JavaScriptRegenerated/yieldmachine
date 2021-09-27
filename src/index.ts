@@ -38,7 +38,7 @@ export interface On {
 
 export interface ListenTo {
   type: "listenTo";
-  eventName: string;
+  eventNames: Array<string>;
   sender: EventTarget
 }
 export interface Always {
@@ -90,8 +90,8 @@ export function exit(f: ActionBody): ExitAction {
   return { type: "exit", f };
 }
 
-export function listenTo(sender: EventTarget, eventName: string): ListenTo {
-  return { type: "listenTo", sender, eventName };
+export function listenTo(sender: EventTarget, eventNames: string | Array<string>): ListenTo {
+  return { type: "listenTo", sender, eventNames: ([] as Array<string>).concat(eventNames) };
 }
 
 export function send<Method extends string | symbol, Arguments extends any[]>(target: () => Record<Method, (...args: Arguments) => void>, method: Method, args: Arguments): Send<Method, Arguments> {
@@ -198,7 +198,9 @@ class Handlers {
     } else if (value.type === "cond") {
       this.alwaysArray.push(value);
     } else if (value.type === 'listenTo') {
-      this.eventsToListenTo.push([value.eventName, value.sender]);
+      for (const eventName of value.eventNames) {
+        this.eventsToListenTo.push([eventName, value.sender]);
+      }
     } else if (value.type === 'accumulate') {
       this.eventsToAccumulate.push([value.eventName, value.resultKey]);
     } else if (value.type === 'readContext') {
