@@ -76,24 +76,45 @@ describe("Machine with entry and exit actions", () => {
 
     test("sending events", async () => {
       const loader = start(Loader);
-      expect(loader.current).toEqual("idle");
+      expect(loader.value).toMatchObject({
+        change: 0,
+        state: "idle",
+        actions: []
+      });
+      expect(loader.value).toBe(loader.value);
       expect(loader.changeCount).toEqual(0);
+      expect(loader.current).toEqual("idle");
+
+      const valueA = loader.value;
 
       loader.next("NOOP");
       expect(loader.current).toEqual("idle");
       expect(loader.changeCount).toEqual(0);
+      expect(loader.value).toBe(valueA);
 
       const transitionResult = loader.next("FETCH");
       expect(fetch).toHaveBeenCalledWith("https://example.org/");
-      expect(transitionResult.actions).toEqual([
-        { type: "entry", f: fetchData },
-      ]);
+      expect(transitionResult.value).toMatchObject({
+        change: 1,
+        state: "loading",
+        actions: [
+          { type: "entry", f: fetchData }
+        ]
+      });
+      expect(loader.value).toMatchObject({
+        change: 1,
+        state: "loading",
+        actions: [
+          { type: "entry", f: fetchData }
+        ]
+      });
+      expect(loader.value).not.toBe(valueA);
       expect(loader.current).toEqual("loading");
       expect(loader.changeCount).toEqual(1);
       expect(finishedLoading).toHaveBeenCalledTimes(0);
 
-      await expect(loader.results).resolves.toEqual({ fetchData: 42 });
-      await expect(Promise.resolve(transitionResult)).resolves.toEqual({
+      await expect(loader.value.results).resolves.toEqual({ fetchData: 42 });
+      await expect(Promise.resolve(transitionResult.value.results)).resolves.toEqual({
         fetchData: 42,
       });
       expect(finishedLoading).toHaveBeenCalledTimes(1);
@@ -118,19 +139,28 @@ describe("Machine with entry and exit actions", () => {
 
     test("sending events", async () => {
       const loader = start(Loader);
-      expect(loader.current).toEqual("idle");
+      expect(loader.value).toMatchObject({
+        change: 0,
+        state: "idle",
+        actions: []
+      });
 
       const transitionResult = loader.next("FETCH");
       expect(fetch).toHaveBeenCalledTimes(1);
       expect(fetch).toHaveBeenLastCalledWith("https://example.org/");
-      expect(transitionResult.actions).toEqual([
+      expect(transitionResult.value.actions).toEqual([
         { type: "entry", f: fetchData },
       ]);
-      expect(loader.current).toEqual("loading");
-      expect(loader.changeCount).toEqual(1);
+      expect(loader.value).toMatchObject({
+        change: 1,
+        state: "loading",
+        actions: [
+          { type: "entry", f: fetchData },
+        ]
+      });
 
-      await expect(loader.results).rejects.toEqual(new Error("Failed!"));
-      await expect(Promise.resolve(transitionResult)).rejects.toEqual(
+      await expect(loader.value.results).rejects.toEqual(new Error("Failed!"));
+      await expect(Promise.resolve(transitionResult.value.results)).rejects.toEqual(
         new Error("Failed!")
       );
       expect(loader.changeCount).toEqual(2);
@@ -211,7 +241,7 @@ describe.skip("Fetch with abort signal", () => {
 
       const transitionResult = loader.next("FETCH");
       expect(fetch).toHaveBeenCalledWith("https://example.org/");
-      expect(transitionResult.actions).toEqual([
+      expect(transitionResult.value.actions).toEqual([
         { type: "entry", f: fetchData },
       ]);
       expect(loader.current).toEqual("loading");
@@ -249,7 +279,7 @@ describe.skip("Fetch with abort signal", () => {
       const transitionResult = loader.next("FETCH");
       expect(fetch).toHaveBeenCalledTimes(1);
       expect(fetch).toHaveBeenLastCalledWith("https://example.org/");
-      expect(transitionResult.actions).toEqual([
+      expect(transitionResult.value.actions).toEqual([
         { type: "entry", f: fetchData },
       ]);
       expect(loader.current).toEqual("loading");

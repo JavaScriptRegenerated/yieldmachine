@@ -123,17 +123,22 @@ export function readContext(contextName: string | symbol): ReadContext {
   return { type: "readContext", contextName };
 }
 
-export interface MachineInstance extends Iterator<null | string | Record<string, string>, void, string | symbol> {
+interface MachineValue {
+  readonly change: number;
+  readonly state: null | string | Record<string, string>;
+  readonly actions: Array<EntryAction | ExitAction>;
+  readonly results: null | Promise<unknown>;
+}
+
+export interface MachineInstance extends Iterator<MachineValue, void, string | symbol> {
+  readonly value: MachineValue;
   readonly changeCount: number;
   readonly current: null | string | Record<string, string>;
   readonly results: null | Promise<unknown>;
   readonly accumulations: Map<symbol | string, Array<symbol | string | Event>>;
   readonly done: boolean;
   readonly signal: AbortSignal;
-  next(arg: string | symbol): IteratorResult<null | string | Record<string, string>> &
-    PromiseLike<any> & {
-      actions: Array<EntryAction | ExitAction>;
-    };
+  next(arg: string | symbol): IteratorResult<MachineValue>;
   abort(): void;
 }
 
@@ -539,10 +544,34 @@ export function start(
     const current = instance.current;
     return current !== null ? current[rootName] : null;
   }
+
+  let _cachedValue: undefined | MachineValue;
+  function getValue() {
+    if (_cachedValue?.change === _changeCount) {
+      return _cachedValue;
+    }
+
+    let resultCache: undefined | Promise<unknown> = undefined;
+    _cachedValue = Object.freeze({
+      change: _changeCount,
+      state: getCurrent(),
+      actions: instance.actions,
+      get results() {
+        if (resultCache === undefined) {
+          resultCache = instance.results;
+        }
+        return resultCache;
+      }
+    });
+    return _cachedValue;
+  }
   
   _changeCount = 0;
 
   return {
+    get value() {
+      return getValue();
+    },
     get changeCount() {
       return _changeCount;
     },
@@ -560,11 +589,8 @@ export function start(
     },
     next(event: string | symbol) {
       instance.receive(event);
-      const promise = instance.results;
       return {
-        value: instance.current !== null ? instance.current[rootName] : null,
-        actions: instance.actions,
-        then: promise?.then.bind(promise),
+        value: getValue(),
         done: false,
       };
     },
