@@ -79,15 +79,15 @@ function Switch() {
 }
 ```
 
-Now our machine is ready to be run. We pass our `Switch` to the `start` function we import from `yieldmachine`, and it will run an instance of our machine. And as we send it `"FLICK"` message, you’ll see the `current` state of our machine instance change.
+Now our machine is ready to be run. We pass our `Switch` to the `start` function we import from `yieldmachine`, and it will run an instance of our machine. And as we send it `"FLICK"` message, you’ll see the `value` of our machine instance change.
 
 ```ts
 const machine = start(Switch);
-machine.current; // "Off"
+machine.value; // { state: "Off", change: 0 }
 machine.next("FLICK");
-machine.current; // "On"
-machine.next("TOGGLE");
-machine.current; // "Off"
+machine.value; // { state: "On", change: 1 }
+machine.next("FLICK");
+machine.value; // { state: "Off", change: 2 }
 ```
 
 ## Benefits of Generator Functions
@@ -106,17 +106,19 @@ machine.current; // "Off"
 
 Starts a machine, transitioning to its initially returned state.
 
-### `.current: string | Record<string, unknown>`
+### `.value`
+
+#### `.value.state: string | Record<string, unknown>`
 
 The current state of the machine. If machines were nested then an object is returned with the parent machine as the key, and its current state as the value.
 
-### `.changeCount: number`
+#### `.value.change: number`
 
 The number of times this machine has transitioned. Useful for consumers updating only when changes have been made.
 
-### `.results: Promise<unknown>`
+#### `.value.results: Promise<unknown>`
 
-The result of any `entry()` or `exit()` messages.
+The result of calling functions passed to `entry()` or `exit()`.
 
 ### `.next(eventName: string | symbol)`
 
