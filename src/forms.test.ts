@@ -101,27 +101,27 @@ describe("Element focus", () => {
 describe("Textbox validation", () => {
   function* RequiredInputValidationResponder(el: HTMLInputElement) {
     yield listenTo(el, ["input", "blur", "focus"]);
-    yield on("focus", compound(CheckingActive));
-    yield on("blur", compound(CheckingActive));
-    yield on("input", compound(CheckingValid));
+    yield on("focus", compound(_CheckingActive));
+    yield on("blur", compound(_CheckingActive));
+    yield on("input", compound(_CheckingValid));
 
     function* Inactive() {}
     function* Active() {}
-    function* CheckingActive() {
+    function* _CheckingActive() {
       yield cond(el.ownerDocument.activeElement === el, Active);
       yield always(Inactive);
     }
     function* Valid() {}
     function* InvalidCannotBeEmpty() {}
     function* InvalidMustBeLowercase() {}
-    function* CheckingValid() {
+    function* _CheckingValid() {
       yield cond(el.value === '', InvalidCannotBeEmpty);
       yield cond(/^[a-z]+$/.test(el.value) === false, InvalidMustBeLowercase);
       // yield cond(false)(/^[a-z]+$/.test(el.value), InvalidMustBeLowercase);
       yield always(Valid);
     }
 
-    return CheckingActive;
+    return _CheckingActive;
   }
 
   it("listens when element receives and loses focus", () => {
