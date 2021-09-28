@@ -43,29 +43,40 @@ describe("Element focus", () => {
     const input = document.body.appendChild(document.createElement("input"));
 
     const machine = start(ButtonFocusListener.bind(null, button));
-
-    expect(machine.current).toEqual("Inactive");
-    expect(machine.changeCount).toEqual(0);
-
-    button.focus();
-    expect(machine.current).toEqual("Active");
-    expect(machine.changeCount).toEqual(2);
+    expect(machine.value).toMatchObject({
+      change: 0,
+      state: "Inactive",
+    });
 
     button.focus();
-    expect(machine.current).toEqual("Active");
-    expect(machine.changeCount).toEqual(2);
+    expect(machine.value).toMatchObject({
+      change: 2,
+      state: "Active",
+    });
+
+    button.focus();
+    expect(machine.value).toMatchObject({
+      change: 2,
+      state: "Active",
+    });
 
     input.focus();
-    expect(machine.current).toEqual("Inactive");
-    expect(machine.changeCount).toEqual(4);
+    expect(machine.value).toMatchObject({
+      change: 4,
+      state: "Inactive",
+    });
 
     button.focus();
-    expect(machine.current).toEqual("Active");
-    expect(machine.changeCount).toEqual(6);
+    expect(machine.value).toMatchObject({
+      change: 6,
+      state: "Active",
+    });
 
     button.blur();
-    expect(machine.current).toEqual("Inactive");
-    expect(machine.changeCount).toEqual(8);
+    expect(machine.value).toMatchObject({
+      change: 8,
+      state: "Inactive",
+    });
 
     machine.abort();
     button.remove();
@@ -77,9 +88,10 @@ describe("Element focus", () => {
 
     button.focus();
     const machine = start(ButtonFocusListener.bind(null, button));
-
-    expect(machine.current).toEqual("Active");
-    expect(machine.changeCount).toEqual(0);
+    expect(machine.value).toMatchObject({
+      change: 0,
+      state: "Active",
+    });
 
     button.remove();
     machine.abort();
@@ -105,6 +117,7 @@ describe("Textbox validation", () => {
     function* CheckingValid() {
       yield cond(el.value === '', InvalidCannotBeEmpty);
       yield cond(/^[a-z]+$/.test(el.value) === false, InvalidMustBeLowercase);
+      // yield cond(false)(/^[a-z]+$/.test(el.value), InvalidMustBeLowercase);
       yield always(Valid);
     }
 
@@ -115,29 +128,40 @@ describe("Textbox validation", () => {
     const input = document.body.appendChild(document.createElement("input"));
 
     const machine = start(RequiredInputValidationResponder.bind(null, input));
-
-    expect(machine.current).toEqual("Inactive");
-    expect(machine.changeCount).toEqual(0);
+    expect(machine.value).toMatchObject({
+      change: 0,
+      state: "Inactive",
+    });
 
     user.click(input);
-    expect(machine.current).toEqual("Active");
-    expect(machine.changeCount).toEqual(2);
+    expect(machine.value).toMatchObject({
+      change: 2,
+      state: "Active",
+    });
     
     user.click(document.body);
-    expect(machine.current).toEqual("Inactive");
-    expect(machine.changeCount).toEqual(4);
+    expect(machine.value).toMatchObject({
+      change: 4,
+      state: "Inactive",
+    });
     
-    user.type(input, "hello");
-    expect(machine.current).toEqual("Valid");
+    user.paste(input, "hello");
+    expect(machine.value).toMatchObject({
+      change: 8,
+      state: "Valid",
+    });
     
     user.clear(input);
-    expect(machine.current).toEqual("InvalidCannotBeEmpty");
+    expect(machine.value).toMatchObject({
+      change: 10,
+      state: "InvalidCannotBeEmpty",
+    });
     
-    user.type(input, "HELLO");
-    expect(machine.current).toEqual("InvalidMustBeLowercase");
-
-    user.type(input, "lowercase");
-    expect(machine.current).toEqual("InvalidMustBeLowercase");
+    user.paste(input, "HELLO");
+    expect(machine.value).toMatchObject({
+      change: 12,
+      state: "InvalidMustBeLowercase",
+    });
 
     input.remove();
     machine.abort();
