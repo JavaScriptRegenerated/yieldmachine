@@ -3,24 +3,23 @@
   <p>Composable State Machines using Generator Functions</p>
   <div>
     <a href="https://bundlephobia.com/result?p=yieldmachine">
-      <img src="https://badgen.net/bundlephobia/minzip/yieldmachine@0.4.1" alt="minified and gzipped size">
-      <img src="https://badgen.net/bundlephobia/min/yieldmachine@0.4.1" alt="minified size">
-      <img src="https://badgen.net/bundlephobia/dependency-count/yieldmachine@0.4.1" alt="zero dependencies">
+      <img src="https://badgen.net/bundlephobia/minzip/yieldmachine@0.4.9" alt="minified and gzipped size">
+      <img src="https://badgen.net/bundlephobia/min/yieldmachine@0.4.9" alt="minified size">
+      <img src="https://badgen.net/bundlephobia/dependency-count/yieldmachine@0.4.9" alt="zero dependencies">
     </a>
   </div>
 </div>
 
-## Overview
+## Goals
 
-- Define state machine components using generators functions.
 - States can be reused.
 - Nest machines inside one another.
-- Use native JavaScript features such as Promise, AbortSignal, and EventTarget.
-- Conform various stateful things such as offline status, promises, fetch, IntersectionObserver, ResizeObserver, window.location. Manage these things in a consistent way with a consistent interface.
+- Interops with native JavaScript & browser features such as Promise, AbortSignal, and EventTarget.
+- Consistently use built-in browser features such as offline status, promises, fetch, IntersectionObserver, ResizeObserver, window.location. Manage these things in a consistent way with a consistent interface.
 
-### Problems
+### Problems that state machines solve
 
-+ Making sure my code is 100% robust and doesn't fall into inconsistent states is hard.
+- Making sure my code is 100% robust and doesn't fall into inconsistent states is hard.
 - It's easy to forget about error handling.
 - Built-in browser features (such as InteractionObserver) are powerful but a pain to manage correctly.
 - Managing various flavors of state is hard: the current URL, local storage, focused element, fetch response, caches, offline/online.
