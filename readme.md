@@ -151,11 +151,11 @@ function Switch() {
 }
 
 const machine = start(Switch);
-machine.current; // "Off"
+machine.value.state; // "Off"
 machine.next("FLICK");
-machine.current; // "On"
+machine.value.state; // "On"
 machine.next("TOGGLE");
-machine.current; // "Off"
+machine.value.state; // "Off"
 ```
 
 ### `enter(action: () => undefined | unknown | Promise<unknown>)`
@@ -184,11 +184,11 @@ function Switch() {
 
 const machine = start(Switch);
 machine.next("FLICK");
-console.log(recordOn, machine.current); // 1, "ON"
+console.log(onCount, machine.value.state); // 1, "ON"
 machine.next("FLICK");
-console.log(recordOn, machine.current); // 1, "OFF"
+console.log(onCount, machine.value.state); // 1, "OFF"
 machine.next("FLICK");
-console.log(recordOn, machine.current); // 2, "ON"
+console.log(onCount, machine.value.state); // 2, "ON"
 ```
 
 ### `exit(action: () => undefined | unknown | Promise<unknown>)`
@@ -216,11 +216,11 @@ function Session() {
 }
 
 const machine = start(Switch);
-console.log(lastSessionEnded, machine.current); // null, "SignedOut"
+console.log(lastSessionEnded, machine.value.state); // null, "SignedOut"
 machine.next("AUTHENTICATE");
-console.log(lastSessionEnded, machine.current); // null, "SignedIn"
+console.log(lastSessionEnded, machine.value.state); // null, "SignedIn"
 machine.next("LOG_OFF");
-console.log(lastSessionEnded, machine.current); // (current time), "SignedOut"
+console.log(lastSessionEnded, machine.value.state); // (current time), "SignedOut"
 ```
 
 ### `cond(predicate: () => boolean, target: GeneratorFunction)`
@@ -251,11 +251,11 @@ function ButtonClickListener(button: HTMLButtonElement) {
 const button = document.createElement('button');
 const machine = start(ButtonClickListener.bind(null, button));
 
-machine.current; // "initial"
+machine.value; // { state: "initial", change: 0 }
 button.click();
-machine.current; // "clicked"
+machine.value; // { state: "clicked", change: 1 }
 button.click();
-machine.current; // "clicked"
+machine.value; // { state: "initial", change: 1 }
 ```
 
 ## Examples
@@ -299,19 +299,19 @@ function Loader() {
 }
 
 const loader = start(Loader);
-loader.current; // "idle"
+loader.value; // { state: "idle", change: 0 }
 
 loader.next("FETCH");
-loader.current; // "loading"
+loader.value; // { state: "loading", change: 1, results: Promise }
 
-loader.results.then((results) => {
+loader.value.results.then((results) => {
   console.log("Fetched", results.fetchData); // Use response of fetch()
-  loader.current; // "success"
+  loader.value.state; // "success"
 });
 
 /* Or with await: */
-// const { fetchData } = await loader.results;
-// loader.current; // "success"
+// const { fetchData } = await loader.value.results;
+// loader.value.state; // "success"
 ```
 
 ### Passing parameters to a machine with closures
@@ -349,14 +349,14 @@ function SpecificLoader() {
 
 // Start our specific loader machine
 const loader = start(SpecificLoader);
-loader.current; // "idle"
+loader.value; // { state: "idle", change: 0 }
 
 loader.next("FETCH");
-loader.current; // "loading"
+loader.value; // { state: "loading", change: 1, results: Promise }
 
-loader.results.then((results) => {
+loader.value.results.then((results) => {
   console.log("Fetched", results.fetchData); // Use response of fetch()
-  loader.current; // "success"
+  loader.value.state; // "success"
 });
 ```
 
@@ -380,9 +380,9 @@ function AbortListener(controller: AbortController) {
 const aborter = new AbortController();
 const machine = start(AbortListener.bind(null, aborter));
 
-machine.current; // "initial"
+machine.value; // { state: "initial", change: 0 }
 aborter.abort();
-machine.current; // "aborted"
+machine.value; // { state: "aborted", change: 1 }
 ```
 
 ----
