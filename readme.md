@@ -1,6 +1,6 @@
 <div align="center">
   <h1>👑 ⚙️ Yield Machine</h1>
-  <p>Composable State Machines using Generator Functions</p>
+  <p>Components for State Machines, using Generator Functions</p>
   <div>
     <a href="https://bundlephobia.com/result?p=yieldmachine">
       <img src="https://badgen.net/bundlephobia/minzip/yieldmachine@0.4.10" alt="minified and gzipped size">
@@ -12,8 +12,8 @@
 
 ## Goals
 
-- States can be reused.
-- Nest machines inside one another.
+- States and machines can be reused — components for state machines.
+- Nest machines inside one another — aid reuse and clarity.
 - Interops with native JavaScript & browser features such as Promise, AbortSignal, and EventTarget.
 - Consistently use built-in browser features such as offline status, promises, fetch, IntersectionObserver, ResizeObserver, window.location. Manage these things in a consistent way with a consistent interface.
 
