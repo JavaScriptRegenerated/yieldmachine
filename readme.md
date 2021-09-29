@@ -26,6 +26,8 @@
 
 ## Install
 
+Requires Node.js 14 and up.
+
 ```console
 npm add yieldmachine
 ```
