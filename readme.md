@@ -231,7 +231,7 @@ Immediately transitions to the target state if the provided predicate function r
 
 Immediately transitions to the target state, if previous `cond()` did not pass.
 
-### `listenTo(sender: EventTarget, eventName: string)`
+### `listenTo(sender: EventTarget, eventName: string | string[])`
 
 Listens to an `EventTarget` — for example, an HTMLElement like a button.
 
