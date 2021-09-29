@@ -794,29 +794,40 @@ describe("FIXME: Key shortcut click highlighting too many event listeners bug", 
     // FIXME: there’s lots of event listeners being created!
     const input = document.createElement('input');
     const machine = start(KeyShortcutListener.bind(null, input));
-
-    expect(machine.current).toEqual("Closed");
-    expect(machine.changeCount).toEqual(0);
-
-    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
-    expect(machine.current).toEqual("Open");
-    expect(machine.changeCount).toEqual(2);
+    expect(machine.value).toMatchObject({
+      state: "Closed",
+      change: 0,
+    });
 
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
-    expect(machine.current).toEqual("Open");
-    expect(machine.changeCount).toEqual(6);
+    expect(machine.value).toMatchObject({
+      state: "Open",
+      change: 2,
+    });
+
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+    expect(machine.value).toMatchObject({
+      state: "Open",
+      change: 6,
+    });
 
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'a' }));
-    expect(machine.current).toEqual("Open");
-    expect(machine.changeCount).toEqual(14);
+    expect(machine.value).toMatchObject({
+      state: "Open",
+      change: 14,
+    });
     
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
-    expect(machine.current).toEqual("Closed");
-    expect(machine.changeCount).toEqual(30);
+    expect(machine.value).toMatchObject({
+      state: "Closed",
+      change: 30,
+    });
 
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'a' }));
-    expect(machine.current).toEqual("Closed");
-    expect(machine.changeCount).toEqual(62);
+    expect(machine.value).toMatchObject({
+      state: "Closed",
+      change: 62,
+    });
 
     machine.abort();
   });
