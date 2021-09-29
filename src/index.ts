@@ -609,6 +609,6 @@ export function onceStateChangesTo(machineInstance: MachineInstance, state: stri
       if (event.value === state) {
         resolve();
       }
-    }, { signal });
+    }, { signal, once: true });
   })
 }
