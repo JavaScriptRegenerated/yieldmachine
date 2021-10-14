@@ -972,6 +972,24 @@ describe("accumulate()", () => {
   });
 });
 
+// describe("Parallel", () => {
+//   // See: https://twitter.com/StateML_org/status/1445502469497188362
+
+//   function* FileManager() {
+//     function* upload() {
+//       function* idle() {}
+//       function* pending() {}
+//       function* playground() {}
+
+//     }
+//   }
+
+//   it("can run", () => {
+//     const machine = start(Example);
+//     expect(machine.value.state).toEqual({ tooling: { viz:} })
+//   })
+// });
+
 /*describe("Counter", () => {
   function* Counter() {
     function* initial() {
