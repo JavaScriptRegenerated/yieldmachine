@@ -3,9 +3,9 @@
   <p>Components for State Machines, using Generator Functions</p>
   <div>
     <a href="https://bundlephobia.com/result?p=yieldmachine">
-      <img src="https://badgen.net/bundlephobia/minzip/yieldmachine@0.4.10" alt="minified and gzipped size">
-      <img src="https://badgen.net/bundlephobia/min/yieldmachine@0.4.10" alt="minified size">
-      <img src="https://badgen.net/bundlephobia/dependency-count/yieldmachine@0.4.10" alt="zero dependencies">
+      <img src="https://badgen.net/bundlephobia/minzip/yieldmachine@0.4.12" alt="minified and gzipped size">
+      <img src="https://badgen.net/bundlephobia/min/yieldmachine@0.4.12" alt="minified size">
+      <img src="https://badgen.net/bundlephobia/dependency-count/yieldmachine@0.4.12" alt="zero dependencies">
     </a>
   </div>
 </div>
