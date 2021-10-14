@@ -23,7 +23,7 @@
     }
   },
   "scripts": {
-    "prepack": "jest && npm run build",
+    "prepack": "jest && npm run build && node tests/node.js",
     "dev": "parcel watch",
     "build": "parcel build",
     "test": "jest --watch"

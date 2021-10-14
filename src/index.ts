@@ -248,7 +248,7 @@ class InternalInstance {
   private globalHandlers = new Handlers()
   private resolved = null as Promise<Record<string, any>> | null
   private accumulations: Map<symbol | string, Array<symbol | string | Event>> = new Map();
-  private eventAborter = new AbortController();
+  private eventAborter = typeof AbortController !== 'undefined' ? new AbortController() : undefined;
   child: null | InternalInstance = null
   
   constructor(
@@ -334,14 +334,14 @@ class InternalInstance {
       // Not sure if we still need this if we have abort signals, and for what versions of Node/browsers?
       target.removeEventListener(event, this);
     }
-    this.eventAborter.abort();
+    this.eventAborter?.abort();
 
     this.globalHandlers.reset();
   }
   
   consume(stateGenerator: (() => StateDefinition) | (() => Generator<Yielded, StateDefinition, never>)) {
     this.cleanup();
-    this.eventAborter = new AbortController();
+    this.eventAborter = typeof AbortController !== 'undefined' ? new AbortController() : undefined;
     
     this.willEnter();
 
@@ -374,7 +374,7 @@ class InternalInstance {
       }
 
       for (const [event, target] of this.globalHandlers.eventsToListenTo) {
-        target.addEventListener(event, this, { signal: this.eventAborter.signal } as AddEventListenerOptions);
+        target.addEventListener(event, this, { signal: this.eventAborter?.signal } as AddEventListenerOptions);
       }
       
     } else if (typeof initialReturn === 'function') {
@@ -474,7 +474,15 @@ class InternalInstance {
   }
 }
 
-class MachineStateChangedEvent extends Event {
+const FallbackEvent = class Event {
+  public readonly type: string;
+  constructor(type: string, eventInitDict?: EventInit | undefined) {
+    this.type = type;
+  }
+} as typeof Event;
+const BaseEvent = typeof Event !== 'undefined' ? Event : FallbackEvent
+
+class MachineStateChangedEvent extends BaseEvent {
   readonly value: string;
 
   constructor(type: string, value: string) {
@@ -517,7 +525,7 @@ export function start(
         _aborter?.signal.dispatchEvent(new MachineStateChangedEvent('StateChanged', getCurrent() as string));
       },
       didChangeAccumulations() {
-        _aborter?.signal.dispatchEvent(new Event('AccumulationsChanged'));
+        _aborter?.signal.dispatchEvent(new BaseEvent('AccumulationsChanged'));
       },
       sendEvent(event, snapshotCount) {
         if (typeof snapshotCount === "number" && snapshotCount !== _changeCount) {
