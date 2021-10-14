@@ -5,7 +5,7 @@
     "module": "ESNext",
     "target": "ESNext",
     "lib": ["dom", "ES2019"],
-    "importHelpers": true,
+    "importHelpers": false,
     // output .d.ts declaration files for consumers
     "declaration": true,
     // output .js.map sourcemap files for consumers
