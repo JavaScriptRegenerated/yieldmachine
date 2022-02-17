@@ -475,6 +475,22 @@ function *ParallelWithANDState() {
     return checking;
   }
 
+  // Alternative
+  function* Light3() {
+    const onCount = yield readCountSiblings('Off');
+
+    function* Off() {}
+    function* On() {}
+    function* checking() {
+      yield cond(onCount === 2, Off);
+      // yield cond(`${onCount} === ${2}`, Off);
+      // yield condIs(Off, onCount, 2);
+      yield always(On);
+    }
+
+    return checking;
+  }
+
   return [
     Light1,
     Light2,
