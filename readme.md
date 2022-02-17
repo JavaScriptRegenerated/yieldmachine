@@ -103,7 +103,7 @@ machine.value; // { state: "Off", change: 2 }
 
 ## Documentation
 
-### `start(machineDefinition: Function | GeneratorFunction)`
+### `start(machineDefinition: Function | GeneratorFunction, options: { signal?: AbortSignal })`
 
 Starts a machine, transitioning to its initially returned state.
 
@@ -326,7 +326,7 @@ function GenericLoader(url) {
   function fetchData() {
     return fetch(url);
   }
-  
+
   function* idle() {
     yield on("FETCH", loading);
   }
@@ -397,6 +397,91 @@ machine.value; // { state: "aborted", change: 1 }
 - [ ] More examples!
 - [ ] Hook for React
 - [ ] Hook for Preact
+
+```js
+function *Parallel() {
+  function Light1() {
+    function* Off() {
+      yield on('toggle_switch_1', On);
+    }
+    function* On() {
+      yield on('toggle_switch_1', Off);
+    }
+    return Off;
+  }
+
+  function Light2() {
+    function* Off() {
+      yield on('toggle_switch_2', On);
+    }
+    function* On() {
+      yield on('toggle_switch_2', Off);
+    }
+    return Off;
+  }
+
+  return [
+    Light1,
+    Light2
+  ];
+}
+```
+
+```js
+function *ParallelWithANDState() {
+  function Light1() {
+    function* Off() {
+      yield on('toggle_switch_1', On);
+    }
+    function* On() {
+      yield on('toggle_switch_1', Off);
+    }
+    return Off;
+  }
+
+  function Light2() {
+    function* Off() {
+      yield on('toggle_switch_2', On);
+    }
+    function* On() {
+      yield on('toggle_switch_2', Off);
+    }
+    return Off;
+  }
+
+  // function* Light3() {
+  //   function* Off() {}
+  //   function* On() {}
+
+  //   return conds(new Map([
+  //     [hasState(Light1, 'Off'), Off],
+  //     [hasState(Light2, 'Off'), Off],
+  //     [true, On],
+  //   ]));
+  // }
+
+  function* Light3() {
+    const light1Off = yield readHasState(Light1, 'Off');
+    const light2Off = yield readHasState(Light2, 'Off');
+
+    function* Off() {}
+    function* On() {}
+    function* checking() {
+      yield cond(light1Off, Off);
+      yield cond(light2Off, Off);
+      yield always(On);
+    }
+
+    return checking;
+  }
+
+  return [
+    Light1,
+    Light2,
+    Light3
+  ];
+}
+```
 
 ----
 
