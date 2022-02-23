@@ -160,9 +160,11 @@ machine.next("TOGGLE");
 machine.value.state; // "Off"
 ```
 
-### `enter(action: () => undefined | unknown | Promise<unknown>)`
+### `entry(action: ({ signal }: { signal: AbortSignal }) => undefined | unknown | Promise<unknown>)`
 
 Runs the provided function when this state is entered. If the function returns a promise, its value is made available in the `.results` property of the machine, keyed by the name of this passed function.
+
+A signal is provided which is useful for passing to `fetch()` or `eventTarget.addEventListener()`. This signal is aborted on exit.
 
 ```ts
 import { start, on, enter } from "yieldmachine";
@@ -177,7 +179,7 @@ function Switch() {
     yield on("FLICK", On);
   }
   function* On() {
-    yield enter(recordOn);
+    yield entry(recordOn);
     yield on("FLICK", Off);
   }
 

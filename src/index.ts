@@ -5,18 +5,22 @@ export interface Call<A extends Array<any>> {
   args: A;
 }
 
-export interface ActionBody {
+export interface EntryActionBody {
+  // (): void;
+  ({ signal }: { signal: AbortSignal }): void;
+}
+export interface ExitActionBody {
   (): void;
 }
 
 export interface EntryAction {
   type: "entry";
-  f: ActionBody;
+  f: EntryActionBody;
   message?: [string | symbol, any[]];
 }
 export interface ExitAction {
   type: "exit";
-  f: ActionBody;
+  f: ExitActionBody;
 }
 
 export type StateDefinition = () => Generator<Yielded, any, unknown>;
@@ -78,7 +82,7 @@ export function call<Arguments extends Array<any>>(
   return { type: "call", f, args };
 }
 
-export function entry(f: ActionBody | Send<string, any[]>): EntryAction {
+export function entry(f: EntryActionBody | Send<string, any[]>): EntryAction {
   if (typeof f === 'function') {
     return { type: "entry", f };
   } else {
@@ -86,7 +90,7 @@ export function entry(f: ActionBody | Send<string, any[]>): EntryAction {
   }
 }
 
-export function exit(f: ActionBody): ExitAction {
+export function exit(f: ExitActionBody): ExitAction {
   return { type: "exit", f };
 }
 
@@ -168,14 +172,14 @@ class Handlers {
     this.eventsToAccumulate.splice(0, Infinity);
   }
 
-  add(value: Yielded, readContext: (contextName: string | symbol) => unknown): unknown | void {
+  add(value: Yielded, signal: AbortSignal, readContext: (contextName: string | symbol) => unknown): unknown | void {
     if (value.type === "entry") {
       this.entryActions.push(value);
 
       const skip = Symbol();
       const resultPromise = new Promise((resolve) => {
         if (value.message === undefined) {
-          const result = value.f();
+          const result = value.f({ signal });
           this.actionResults.set(value.f.name, result);
           resolve(result);
         } else {
@@ -358,7 +362,7 @@ class InternalInstance {
           break;
         }
 
-        reply = this.globalHandlers.add(item.value, this.callbacks.readContext);
+        reply = this.globalHandlers.add(item.value, this.signal, this.callbacks.readContext);
       }
 
       const promise = this.globalHandlers.finish();

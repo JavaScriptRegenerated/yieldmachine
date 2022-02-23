@@ -821,13 +821,11 @@ describe("Hovering machine", () => {
     let dragOrigin: null | { x: number; y: number } = null;
 
     function* Up() {
-      const aborter = new AbortController();
-      yield exit(() => aborter.abort());
-      yield entry(() => {
+      yield entry(({ signal }) => {
         el.addEventListener("pointerdown", event => {
           dragOrigin = { x: event.clientX, y: event.clientY };
           console.log(dragOrigin);
-        }, { signal: aborter.signal });
+        }, { signal });
       });
       yield entry(enteredUp);
       yield exit(exitedUp);
@@ -842,11 +840,8 @@ describe("Hovering machine", () => {
       yield on("pointerup", Clicked);
     }
     function* Dragging() {
-      const aborter = new AbortController();
-      yield exit(() => aborter.abort());
-
       yield entry(enteredDragging);
-      yield entry(() => {
+      yield entry(({ signal }) => {
         el.addEventListener("pointermove", event => {
           if (dragOrigin == null) return;
 
@@ -854,7 +849,7 @@ describe("Hovering machine", () => {
           const deltaY = event.clientY - dragOrigin.y;
           el.style.left = `${deltaX}px`;
           el.style.top = `${deltaY}px`;
-        }, { signal: aborter.signal });
+        }, { signal });
       });
       yield listenTo(el, ["pointerup"]);
       yield on("pointerup", Dropped);
