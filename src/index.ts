@@ -67,8 +67,8 @@ export interface ReadContext {
 
 export type Yielded = On | Always | Cond | EntryAction | ExitAction | ListenTo | ReadContext | Accumulate | Call<any>;
 
-export function on<Event extends string | symbol>(event: Event, target: Target): On {
-  return { type: "on", on: event, target };
+export function on<Event extends string | symbol | ErrorConstructor>(event: Event, target: Target): On {
+  return { type: "on", on: typeof event === 'function' && 'name' in event ? event.name : event, target };
 }
 
 export function call<Arguments extends Array<any>>(
@@ -137,9 +137,9 @@ export interface MachineInstance extends Iterator<MachineValue, void, string | s
   readonly results: null | Promise<unknown>;
   readonly accumulations: Map<symbol | string, Array<symbol | string | Event>>;
   readonly done: boolean;
-  readonly signal: AbortSignal;
+  readonly eventTarget: EventTarget;
   next(arg: string | symbol): IteratorResult<MachineValue>;
-  abort(): void;
+  // abort(): void;
 }
 
 class Handlers {
@@ -152,11 +152,11 @@ class Handlers {
   private promise: null | Promise<Array<unknown>> = null;
   public readonly eventsToListenTo = new Array<[string, EventTarget]>();
   public readonly eventsToAccumulate = new Array<[string | symbol, symbol]>();
-  
+
   *actions(): Generator<EntryAction, void, undefined> {
     yield* this.entryActions;
   }
-  
+
   reset() {
     this.eventsMap.clear();
     this.entryActions.splice(0, Infinity);
@@ -167,11 +167,11 @@ class Handlers {
     this.eventsToListenTo.splice(0, Infinity);
     this.eventsToAccumulate.splice(0, Infinity);
   }
-  
+
   add(value: Yielded, readContext: (contextName: string | symbol) => unknown): unknown | void {
     if (value.type === "entry") {
       this.entryActions.push(value);
-      
+
       const skip = Symbol();
       const resultPromise = new Promise((resolve) => {
         if (value.message === undefined) {
@@ -193,7 +193,7 @@ class Handlers {
         return undefined;
       });
       this.promises.push(resultPromise);
-      
+
     } else if (value.type === "exit") {
       this.exitActions.push(value);
     } else if (value.type === "on") {
@@ -213,30 +213,30 @@ class Handlers {
     }
     return undefined;
   }
-  
+
   finish(): null | Promise<Record<string, any>> {
     if (this.promises.length === 0) return null;
-    
+
     const promise = Promise.resolve(this.promise)
-      .catch(() => {})
+      .catch(() => { })
       .then(() => Promise.all(this.promises))
       .then(resultObjects => Object.assign({}, ...resultObjects));
-    
+
     this.promise = promise;
-    
+
     return promise;
   }
-  
+
   runExit() {
     this.exitActions.forEach((action) => {
       action.f();
     });
   }
-  
+
   runAlways(process: (target: Target) => boolean) {
     this.alwaysArray.some(process);
   }
-  
+
   targetForEvent(event: string | symbol) {
     return this.eventsMap.get(event);
   }
@@ -248,16 +248,18 @@ class InternalInstance {
   private globalHandlers = new Handlers()
   private resolved = null as Promise<Record<string, any>> | null
   private accumulations: Map<symbol | string, Array<symbol | string | Event>> = new Map();
-  private eventAborter = typeof AbortController !== 'undefined' ? new AbortController() : undefined;
+  private aborter = new AbortController();
+  private eventAborter = new AbortController();
   child: null | InternalInstance = null
-  
+
   constructor(
     parent: null | InternalInstance,
     machineDefinition: (() => StateDefinition) | (() => Generator<Yielded, StateDefinition, never>),
+    private signal: AbortSignal,
     private callbacks: {
       readonly changeCount: number;
       willChangeState: () => void;
-      didChangeState: () => void;
+      didChangeState: (state: string | Record<string, unknown>) => void;
       didChangeAccumulations: () => void;
       sendEvent: (event: string, changeCount?: number) => void;
       willHandleEvent: (event: Event) => void;
@@ -268,9 +270,13 @@ class InternalInstance {
     this.definition = machineDefinition;
     this.parent = parent;
     this.consume(machineDefinition);
+
+    signal.addEventListener('abort', () => {
+      this.willExit();
+    }, { once: true });
   }
-  
-  get current(): null | string | Record<string, any> {
+
+  get current(): null | string | Record<string, unknown> {
     if (this.child === null) {
       return this.definition.name;
     } else {
@@ -278,18 +284,18 @@ class InternalInstance {
       return { [this.definition.name]: this.child.current };
     }
   }
-  
+
   private *generateActions(): Generator<EntryAction, void, undefined> {
     yield* this.globalHandlers.actions();
     if (this.child !== null) {
       yield* this.child.generateActions();
     }
   }
-  
+
   get actions(): Array<EntryAction> {
     return Array.from(this.generateActions());
   }
-  
+
   private async *valuePromises(): AsyncGenerator<Record<string, any>, void, undefined> {
     if (this.resolved !== null) {
       yield await this.resolved;
@@ -298,7 +304,7 @@ class InternalInstance {
       yield* this.child.valuePromises();
     }
   }
-  
+
   get results(): Promise<Array<any>> {
     const build = async () => {
       const objects: Array<any> = [];
@@ -307,7 +313,7 @@ class InternalInstance {
       }
       return objects;
     }
-    
+
     return build().then(objects => Object.assign({}, ...objects));
     // return build().then(pairs => Object.fromEntries(pairs as any));
   }
@@ -319,7 +325,7 @@ class InternalInstance {
     }
 
     if (this.child !== null) {
-      yield *this.child.allAccumulations();
+      yield* this.child.allAccumulations();
     }
   }
 
@@ -330,38 +336,34 @@ class InternalInstance {
   }
 
   cleanup() {
-    for (const [event, target] of this.globalHandlers.eventsToListenTo) {
-      // Not sure if we still need this if we have abort signals, and for what versions of Node/browsers?
-      target.removeEventListener(event, this);
-    }
-    this.eventAborter?.abort();
-
+    this.eventAborter.abort();
     this.globalHandlers.reset();
   }
-  
+
   consume(stateGenerator: (() => StateDefinition) | (() => Generator<Yielded, StateDefinition, never>)) {
-    this.cleanup();
-    this.eventAborter = typeof AbortController !== 'undefined' ? new AbortController() : undefined;
-    
+    // this.cleanup();
+    this.eventAborter = new AbortController();
+
     this.willEnter();
 
-    const initialReturn = stateGenerator();    
+    const initialReturn = stateGenerator();
+    // Generator function
     if (initialReturn[Symbol.iterator]) {
-      const iterator = initialReturn[Symbol.iterator]();
+      const iterator: Iterator<any, unknown, unknown> = initialReturn[Symbol.iterator]();
       let reply: unknown = undefined;
       while (true) {
         const item = iterator.next(reply)
         if (item.done) {
-          var initialGenerator = item.value;
+          var initialGenerator = item.value as unknown;
           break;
         }
-        
+
         reply = this.globalHandlers.add(item.value, this.callbacks.readContext);
       }
-      
+
       const promise = this.globalHandlers.finish();
       this.resolved = promise;
-  
+
       if (promise !== null) {
         const snapshotCount = this.callbacks.changeCount;
         promise
@@ -374,62 +376,58 @@ class InternalInstance {
       }
 
       for (const [event, target] of this.globalHandlers.eventsToListenTo) {
-        target.addEventListener(event, this, { signal: this.eventAborter?.signal } as AddEventListenerOptions);
+        target.addEventListener(event, this, { signal: this.eventAborter.signal } as AddEventListenerOptions);
       }
-      
-    } else if (typeof initialReturn === 'function') {
-      var initialGenerator = initialReturn as any;
+
+    }
+    // Normal function
+    else if (typeof initialReturn === 'function') {
+      var initialGenerator = initialReturn as unknown;
     } else {
       // throw new Error(`State Machine definition returned invalid initial value ${initialReturn}`);
     }
-    
-    this.transitionTo(initialGenerator);
+
+    this.transitionTo(initialGenerator as StateDefinition | undefined);
   }
-  
+
   willEnter() {
     this.callbacks.willChangeState();
   }
-  
+
   didEnter() {
-    this.callbacks.didChangeState();
+    this.callbacks.didChangeState(this.current!);
     this.globalHandlers.runAlways(target => this.processTarget(target));
   }
-  
+
   willExit() {
     this.globalHandlers.runExit();
+    this.globalHandlers.reset();
+    this.eventAborter.abort();
   }
-  
+
   transitionTo(stateDefinition?: StateDefinition) {
-    if (stateDefinition !== undefined) {
-      if (this.child !== null) {
-        if (this.child.definition === stateDefinition) {
-          return;
-        }
-        
-        this.child.willExit();  
-      }
-      
-      this.willExit();
-  
-      // this.resolved = null;
-      
-      const childInstance = new InternalInstance(this, stateDefinition, this.callbacks);
-      this.child = childInstance;
-      childInstance.didEnter();
+    if (stateDefinition === undefined) {
+      return;
     }
-    
-    // this.didEnter();
+    if (this.child?.definition === stateDefinition) {
+      return;
+    }
+
+    this.aborter.abort();
+
+    this.aborter = new AbortController();
+    const childInstance = new InternalInstance(this, stateDefinition, this.aborter.signal, this.callbacks);
+    this.child = childInstance;
+    childInstance.didEnter();
   }
-  
+
   processTarget(target: Target): boolean {
     if ('type' in target) {
       if (target.type === "cond") {
         const result = typeof target.cond === 'boolean' ? target.cond : target.cond(this.callbacks.readContext);
-        if (result) {
-          if (this.parent !== null) {
-            this.parent.transitionTo(target.target);
-            return true;
-          }
+        if (result === true && this.parent !== null) {
+          this.parent.transitionTo(target.target);
+          return true;
         }
       } else if (target.type === "compound") {
         let receiver: InternalInstance = this;
@@ -441,14 +439,10 @@ class InternalInstance {
             break;
           }
         }
-        // const targetA = target.targets[0];
-        // this.transitionTo(targetA);
       }
-    } else {
-      if (this.parent !== null) {
-        this.parent.transitionTo(target);
-        return true;
-      }
+    } else if (this.parent !== null) {
+      this.parent.transitionTo(target);
+      return true;
     }
 
     return false;
@@ -466,6 +460,7 @@ class InternalInstance {
 
     for (const [iteratedEventName, resultKey] of this.globalHandlers.eventsToAccumulate) {
       if (iteratedEventName === eventName) {
+        // TODO: have different strategies rather than just storing every single event.
         const current = this.accumulations.get(resultKey) ?? [];
         this.accumulations.set(resultKey, current.concat(event));
         this.callbacks.didChangeAccumulations();
@@ -483,49 +478,38 @@ const FallbackEvent = class Event {
 const BaseEvent = typeof Event !== 'undefined' ? Event : FallbackEvent
 
 class MachineStateChangedEvent extends BaseEvent {
-  readonly value: string;
+  readonly value: string | Record<string, unknown>;
 
-  constructor(type: string, value: string) {
+  constructor(type: string, value: string | Record<string, unknown>) {
     super(type)
     this.value = value;
   }
 }
 
 export function start(
-  machine: (() => StateDefinition) | (() => Generator<Yielded, StateDefinition, never>)
+  machine: (() => StateDefinition) | (() => Generator<Yielded, StateDefinition, never>),
+  options: { signal?: AbortSignal } = {}
 ): MachineInstance {
   let _changeCount = -1;
   let _activeEvent: null | Event = null;
-  let _aborter: null | AbortController = null;
-  function ensureAborter(): AbortController {
-    if (_aborter !== null) return _aborter;
+  let _aborter = new AbortController();
+  let _eventTarget = new EventTarget();
 
-    const newAborter = new AbortController();
-    const signal = newAborter.signal;
-
-    signal.addEventListener('abort', () => {
-      instance.cleanup();
-    }, { once: true });
-    
-    _aborter = newAborter;
-
-    return newAborter;
-  }
-  
   const rootName = machine.name;
   const instance: InternalInstance = new InternalInstance(
     null,
     machine,
+    _aborter.signal,
     {
       get changeCount() { return _changeCount },
       willChangeState() {
         _changeCount += 1;
       },
-      didChangeState() {
-        _aborter?.signal.dispatchEvent(new MachineStateChangedEvent('StateChanged', getCurrent() as string));
+      didChangeState(state) {
+        _eventTarget.dispatchEvent(new MachineStateChangedEvent('StateChanged', state));
       },
       didChangeAccumulations() {
-        _aborter?.signal.dispatchEvent(new BaseEvent('AccumulationsChanged'));
+        _eventTarget.dispatchEvent(new BaseEvent('AccumulationsChanged'));
       },
       sendEvent(event, snapshotCount) {
         if (typeof snapshotCount === "number" && snapshotCount !== _changeCount) {
@@ -548,10 +532,16 @@ export function start(
     }
   );
 
-  function getCurrent() {
-    const current = instance.current;
-    return current !== null ? current[rootName] : null;
+  if (options.signal && !options.signal.aborted) {
+    options.signal.addEventListener('abort', () => {
+      instance.cleanup();
+    }, { once: true });
   }
+
+  // function getCurrent() {
+  //   const current = instance.current;
+  //   return current !== null ? current[rootName] : null;
+  // }
 
   let _cachedValue: undefined | MachineValue;
   function getValue() {
@@ -562,7 +552,7 @@ export function start(
     let resultCache: undefined | Promise<unknown> = undefined;
     _cachedValue = Object.freeze({
       change: _changeCount,
-      state: getCurrent(),
+      state: instance.current !== null ? instance.current[rootName] : null,
       actions: instance.actions,
       get results() {
         if (resultCache === undefined) {
@@ -573,7 +563,7 @@ export function start(
     });
     return _cachedValue;
   }
-  
+
   _changeCount = 0;
 
   return {
@@ -584,10 +574,10 @@ export function start(
       return _changeCount;
     },
     get current() {
-      return getCurrent();
+      return instance.current !== null ? instance.current[rootName] : null;
     },
-    get signal() {
-      return ensureAborter().signal;
+    get eventTarget() {
+      return _eventTarget;
     },
     get results() {
       return instance.results;
@@ -602,9 +592,6 @@ export function start(
         done: false,
       };
     },
-    abort() {
-      ensureAborter().abort();
-    },
     get done() {
       return instance.child !== null;
     },
@@ -613,7 +600,7 @@ export function start(
 
 export function onceStateChangesTo(machineInstance: MachineInstance, state: string, signal: AbortSignal): Promise<void> {
   return new Promise((resolve) => {
-    machineInstance.signal.addEventListener("StateChanged", (event: MachineStateChangedEvent) => {
+    machineInstance.eventTarget.addEventListener("StateChanged", (event: MachineStateChangedEvent) => {
       if (event.value === state) {
         resolve();
       }

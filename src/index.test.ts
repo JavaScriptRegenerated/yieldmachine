@@ -484,10 +484,10 @@ describe("Switch", () => {
   it("emits events to signal", () => {
     const machine = start(Switch);
     expect(machine).toBeDefined();
-    expect(machine.signal).toBeInstanceOf(AbortSignal);
+    expect(machine.eventTarget).toBeInstanceOf(EventTarget);
 
     const eventListener = jest.fn();
-    machine.signal.addEventListener("StateChanged", eventListener);
+    machine.eventTarget.addEventListener("StateChanged", eventListener);
 
     machine.next("FLICK");
     expect(machine.current).toEqual("ON");
@@ -499,7 +499,7 @@ describe("Switch", () => {
     expect(eventListener).toHaveBeenCalledTimes(2);
     expect(eventListener).toHaveBeenLastCalledWith(expect.objectContaining({ type: "StateChanged", value: "OFF" }));
 
-    machine.signal.removeEventListener("StateChanged", eventListener);
+    machine.eventTarget.removeEventListener("StateChanged", eventListener);
 
     machine.next("FLICK");
     expect(machine.current).toEqual("ON");
@@ -942,7 +942,7 @@ describe("Hovering machine", () => {
     expect(enteredDropped).toHaveBeenCalledTimes(0);
 
     button.dispatchEvent(new MouseEvent('pointerup'));
-    expect(machine.value).toMatchObject({ state: "Dropped", change: 4 });
+    expect(machine.value).toMatchObject({ state: "Dropped", change: 3 });
     expect(enteredUp).toHaveBeenCalledTimes(2);
     expect(exitedUp).toHaveBeenCalledTimes(1);
     expect(enteredDown).toHaveBeenCalledTimes(1);
@@ -980,8 +980,9 @@ describe("FIXME: Key shortcut click highlighting too many event listeners bug", 
 
   it("listens when keys are pressed", () => {
     // FIXME: there’s lots of event listeners being created!
+    const aborter = new AbortController();
     const input = document.createElement('input');
-    const machine = start(KeyShortcutListener.bind(null, input));
+    const machine = start(KeyShortcutListener.bind(null, input), { signal: aborter.signal });
     expect(machine.value).toMatchObject({
       state: "Closed",
       change: 0,
@@ -996,28 +997,28 @@ describe("FIXME: Key shortcut click highlighting too many event listeners bug", 
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
     expect(machine.value).toMatchObject({
       state: "Open",
-      change: 6,
+      change: 4,
     });
 
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'a' }));
     expect(machine.value).toMatchObject({
       state: "Open",
-      change: 14,
+      change: 6,
     });
 
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
     expect(machine.value).toMatchObject({
       state: "Closed",
-      change: 30,
+      change: 8,
     });
 
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'a' }));
     expect(machine.value).toMatchObject({
       state: "Closed",
-      change: 62,
+      change: 10,
     });
 
-    machine.abort();
+    aborter.abort();
   });
 });
 
@@ -1048,8 +1049,9 @@ describe("Key shortcut cond reading event", () => {
   }
 
   it("listens when keys are pressed", () => {
+    const aborter = new AbortController();
     const input = document.createElement('input');
-    const machine = start(KeyShortcutListener.bind(null, input));
+    const machine = start(KeyShortcutListener.bind(null, input), { signal: aborter.signal });
 
     expect(machine.current).toEqual("Closed");
     expect(machine.changeCount).toEqual(0);
@@ -1074,7 +1076,7 @@ describe("Key shortcut cond reading event", () => {
     expect(machine.current).toEqual("Closed");
     expect(machine.changeCount).toEqual(2);
 
-    machine.abort();
+    aborter.abort();
   });
 });
 
@@ -1111,8 +1113,8 @@ describe("accumulate()", () => {
 
     const stateChangedListener = jest.fn();
     const accumulationsChangedListener = jest.fn();
-    machine.signal.addEventListener("StateChanged", stateChangedListener);
-    machine.signal.addEventListener("AccumulationsChanged", accumulationsChangedListener);
+    machine.eventTarget.addEventListener("StateChanged", stateChangedListener);
+    machine.eventTarget.addEventListener("AccumulationsChanged", accumulationsChangedListener);
 
     expect(machine.current).toEqual("Connecting");
 
@@ -1153,10 +1155,10 @@ describe("accumulate()", () => {
     eventTarget.dispatchEvent(event4);
     expect(machine.current).toEqual("Closed");
     expect(machine.accumulations).toEqual(new Map());
-    expect(accumulationsChangedListener).toHaveBeenCalledTimes(4); // FIX: this should be 3
+    expect(accumulationsChangedListener).toHaveBeenCalledTimes(3);
 
-    machine.signal.removeEventListener("StateChanged", stateChangedListener);
-    machine.signal.removeEventListener("AccumulationsChanged", accumulationsChangedListener);
+    machine.eventTarget.removeEventListener("StateChanged", stateChangedListener);
+    machine.eventTarget.removeEventListener("AccumulationsChanged", accumulationsChangedListener);
   });
 });
 

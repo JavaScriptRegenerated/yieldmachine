@@ -39,10 +39,11 @@ describe("Element focus", () => {
   }
 
   it("listens when element receives and loses focus", () => {
+    const aborter = new AbortController();
     const button = document.body.appendChild(document.createElement("button"));
     const input = document.body.appendChild(document.createElement("input"));
 
-    const machine = start(ButtonFocusListener.bind(null, button));
+    const machine = start(ButtonFocusListener.bind(null, button), { signal: aborter.signal });
     expect(machine.value).toMatchObject({
       change: 0,
       state: "Inactive",
@@ -78,23 +79,24 @@ describe("Element focus", () => {
       state: "Inactive",
     });
 
-    machine.abort();
+    aborter.abort();
     button.remove();
     input.remove();
   });
 
   it("is initially Active if element is already focused when starting", () => {
+    const aborter = new AbortController();
     const button = document.body.appendChild(document.createElement("button"));
 
     button.focus();
-    const machine = start(ButtonFocusListener.bind(null, button));
+    const machine = start(ButtonFocusListener.bind(null, button), { signal: aborter.signal });
     expect(machine.value).toMatchObject({
       change: 0,
       state: "Active",
     });
 
     button.remove();
-    machine.abort();
+    aborter.abort();
   });
 });
 
@@ -125,9 +127,10 @@ describe("Textbox validation", () => {
   }
 
   it("listens when element receives and loses focus", () => {
+    const aborter = new AbortController();
     const input = document.body.appendChild(document.createElement("input"));
 
-    const machine = start(RequiredInputValidationResponder.bind(null, input));
+    const machine = start(RequiredInputValidationResponder.bind(null, input), { signal: aborter.signal });
     expect(machine.value).toMatchObject({
       change: 0,
       state: "Inactive",
@@ -138,25 +141,25 @@ describe("Textbox validation", () => {
       change: 2,
       state: "Active",
     });
-    
+
     user.click(document.body);
     expect(machine.value).toMatchObject({
       change: 4,
       state: "Inactive",
     });
-    
+
     user.paste(input, "hello");
     expect(machine.value).toMatchObject({
       change: 8,
       state: "Valid",
     });
-    
+
     user.clear(input);
     expect(machine.value).toMatchObject({
       change: 10,
       state: "InvalidCannotBeEmpty",
     });
-    
+
     user.paste(input, "HELLO");
     expect(machine.value).toMatchObject({
       change: 12,
@@ -164,6 +167,6 @@ describe("Textbox validation", () => {
     });
 
     input.remove();
-    machine.abort();
+    aborter.abort();
   });
 });

@@ -25,19 +25,21 @@ function Session({ onSignOut }: { onSignOut: () => void }) {
 }
 
 describe("Session", () => {
-it("is initially signed out", () => {
+  it("is initially signed out", () => {
+    const aborter = new AbortController();
     const onSignOut = jest.fn();
-    const instance = start(Session.bind(null, { onSignOut }));
+    const instance = start(Session.bind(null, { onSignOut }), { signal: aborter.signal });
     expect(onSignOut).toHaveBeenCalledTimes(1);
-    instance.abort();
+    aborter.abort();
   });
 
   it("can sign in", () => {
+    const aborter = new AbortController();
     const onSignOut = jest.fn();
-    const instance = start(Session.bind(null, { onSignOut }));
+    const instance = start(Session.bind(null, { onSignOut }), { signal: aborter.signal });
     instance.next('DID_SIGN_IN');
     expect(onSignOut).toHaveBeenCalledTimes(2);
     expect(instance.value.state).toBe("SignedOut");
-    instance.abort();
+    aborter.abort();
   });
 })
