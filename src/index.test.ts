@@ -17,7 +17,7 @@ import {
   readContext,
 } from "./index";
 
-test("node version " + process.version, () => {});
+test("node version " + process.version, () => { });
 
 function useEach(work: () => () => void) {
   let cleanup: null | (() => void) = null;
@@ -159,7 +159,8 @@ describe("Machine with entry and exit actions", () => {
         ]
       });
 
-      await expect(loader.value.results).rejects.toEqual(new Error("Failed!"));
+      // await expect(loader.value.results).rejects.toEqual(new Error("Failed!"));
+      await expect(loader.value.results).rejects.toBeInstanceOf(Error);
       await expect(Promise.resolve(transitionResult.value.results)).rejects.toEqual(
         new Error("Failed!")
       );
@@ -399,8 +400,8 @@ describe("Hierarchical Traffic Lights Machine", () => {
     function* wait() {
       yield on("PED_COUNTDOWN", stop);
     }
-    function* stop() {}
-    function* blinking() {}
+    function* stop() { }
+    function* blinking() { }
 
     return { walk, blinking };
   }
@@ -492,12 +493,12 @@ describe("Switch", () => {
     expect(machine.current).toEqual("ON");
     expect(eventListener).toHaveBeenCalledTimes(1);
     expect(eventListener).toHaveBeenLastCalledWith(expect.objectContaining({ type: "StateChanged", value: "ON" }));
-    
+
     machine.next("FLICK");
     expect(machine.current).toEqual("OFF");
     expect(eventListener).toHaveBeenCalledTimes(2);
     expect(eventListener).toHaveBeenLastCalledWith(expect.objectContaining({ type: "StateChanged", value: "OFF" }));
-    
+
     machine.signal.removeEventListener("StateChanged", eventListener);
 
     machine.next("FLICK");
@@ -555,16 +556,54 @@ describe("Switch with symbol messages", () => {
   });
 });
 
+describe.skip("Switch as class", () => {
+  class Switch {
+    constructor() {
+      // Set up any internal state needed.
+      return this.Off as any;
+    }
+
+    get initial() {
+      return this.Off;
+    }
+
+    *Off() {
+      yield on("FLICK", this.On);
+    }
+    *On() {
+      yield on("FLICK", this.Off);
+    }
+  }
+
+  test("sending events", () => {
+    const machine = start(() => new Switch() as any);
+    expect(machine).toBeDefined();
+    expect(machine.current).toEqual("OFF");
+
+    machine.next("FLICK");
+    expect(machine.current).toEqual("ON");
+    expect(machine.changeCount).toEqual(1);
+
+    machine.next("FLICK");
+    expect(machine.current).toEqual("OFF");
+    expect(machine.changeCount).toEqual(2);
+
+    machine.next(Symbol("will be ignored"));
+    expect(machine.current).toEqual("OFF");
+    expect(machine.changeCount).toEqual(2);
+  });
+});
+
 describe("Wrapping navigator online as a state machine", () => {
   function* OfflineStatus() {
     yield listenTo(window, "online");
     yield listenTo(window, "offline");
     yield on("online", compound(Online));
     yield on("offline", compound(Offline));
-  
-    function* Online() {}
-    function* Offline() {}
-  
+
+    function* Online() { }
+    function* Offline() { }
+
     return function* Pending() {
       yield cond(navigator.onLine, Online);
       yield always(Offline);
@@ -622,32 +661,32 @@ describe("Wrapping navigator online as a state machine", () => {
 
 describe("Wrapping AbortController as a state machine", () => {
   function AbortSender(controller: AbortController) {
-    function* initial() {
-      yield cond(controller.signal.aborted, aborted);
-      yield on("abort", aborted);
+    function* Initial() {
+      yield cond(controller.signal.aborted, Aborted);
+      yield on("abort", Aborted);
     }
-    function* aborted() {
+    function* Aborted() {
       // yield entry(controller.abort.bind(controller));
       yield entry(function abort() {
         controller.abort();
       });
     }
 
-    return initial;
+    return Initial;
   }
 
   function AbortListener(controller: AbortController) {
-    function* initial() {
+    function* Initial() {
       if (controller.signal.aborted) {
-        yield always(aborted);
+        yield always(Aborted);
       } else {
-        yield on("abort", aborted);
+        yield on("abort", Aborted);
         yield listenTo(controller.signal, "abort");
       }
     }
-    function* aborted() {}
+    function* Aborted() { }
 
-    return initial;
+    return Initial;
   }
 
   function AbortOwner() {
@@ -656,15 +695,15 @@ describe("Wrapping AbortController as a state machine", () => {
       return new AbortController();
     }
 
-    function* initial() {
+    function* Initial() {
       yield entry(controller);
-      yield on("abort", aborted);
+      yield on("abort", Aborted);
     }
-    function* aborted() {
+    function* Aborted() {
       yield entry(send(controller, "abort", []));
     }
 
-    return initial;
+    return Initial;
   }
 
   describe("AbortSender", () => {
@@ -672,7 +711,7 @@ describe("Wrapping AbortController as a state machine", () => {
       const aborter = new AbortController();
       aborter.abort();
       const machine = start(AbortSender.bind(null, aborter));
-      expect(machine.current).toEqual("aborted");
+      expect(machine.current).toEqual("Aborted");
       expect(machine.changeCount).toEqual(0);
     });
 
@@ -680,13 +719,13 @@ describe("Wrapping AbortController as a state machine", () => {
       const aborter = new AbortController();
       const machine = start(AbortSender.bind(null, aborter));
 
-      expect(machine.current).toEqual("initial");
+      expect(machine.current).toEqual("Initial");
       expect(machine.changeCount).toEqual(0);
 
       expect(aborter.signal.aborted).toBe(false);
 
       machine.next("abort");
-      expect(machine.current).toEqual("aborted");
+      expect(machine.current).toEqual("Aborted");
       expect(machine.changeCount).toEqual(1);
 
       expect(aborter.signal.aborted).toBe(true);
@@ -698,7 +737,7 @@ describe("Wrapping AbortController as a state machine", () => {
       const aborter = new AbortController();
       aborter.abort();
       const machine = start(AbortListener.bind(null, aborter));
-      expect(machine.current).toEqual("aborted");
+      expect(machine.current).toEqual("Aborted");
       expect(machine.changeCount).toEqual(0);
     });
 
@@ -706,12 +745,12 @@ describe("Wrapping AbortController as a state machine", () => {
       const aborter = new AbortController();
       const machine = start(AbortListener.bind(null, aborter));
 
-      expect(machine.current).toEqual("initial");
+      expect(machine.current).toEqual("Initial");
       expect(machine.changeCount).toEqual(0);
       expect(aborter.signal.aborted).toBe(false);
 
       aborter.abort();
-      expect(machine.current).toEqual("aborted");
+      expect(machine.current).toEqual("Aborted");
       expect(machine.changeCount).toEqual(1);
     });
   });
@@ -720,15 +759,15 @@ describe("Wrapping AbortController as a state machine", () => {
     it.skip("aborts", async () => {
       const machine = start(AbortOwner);
 
-      expect(machine.current).toEqual("initial");
+      expect(machine.current).toEqual("Initial");
       expect(machine.changeCount).toEqual(0);
 
       const { controller } = await machine.results as { controller: AbortController };
       expect(controller).toBeInstanceOf(AbortController);
       expect(controller.signal.aborted).toBe(false);
-      
+
       machine.next("abort");
-      expect(machine.current).toEqual("aborted");
+      expect(machine.current).toEqual("Aborted");
       expect(machine.changeCount).toEqual(1);
 
       expect(controller.signal.aborted).toBe(true);
@@ -742,7 +781,7 @@ describe("Button click", () => {
       yield on("click", Clicked);
       yield listenTo(button, "click");
     }
-    function* Clicked() {}
+    function* Clicked() { }
 
     return Initial;
   }
@@ -761,6 +800,155 @@ describe("Button click", () => {
     button.click();
     expect(machine.current).toEqual("Clicked");
     expect(machine.changeCount).toEqual(1);
+  });
+});
+
+describe("Hovering machine", () => {
+  const enteredUp = jest.fn();
+  beforeEach(enteredUp.mockClear);
+  const exitedUp = jest.fn();
+  beforeEach(exitedUp.mockClear);
+  const enteredDown = jest.fn();
+  beforeEach(enteredDown.mockClear);
+  const enteredDragging = jest.fn();
+  beforeEach(enteredDragging.mockClear);
+  const enteredClicked = jest.fn();
+  beforeEach(enteredClicked.mockClear);
+  const enteredDropped = jest.fn();
+  beforeEach(enteredDropped.mockClear);
+
+  function DraggableMachine(el: HTMLElement) {
+    let dragOrigin: null | { x: number; y: number } = null;
+
+    function* Up() {
+      const aborter = new AbortController();
+      yield exit(() => aborter.abort());
+      yield entry(() => {
+        el.addEventListener("pointerdown", event => {
+          dragOrigin = { x: event.clientX, y: event.clientY };
+          console.log(dragOrigin);
+        }, { signal: aborter.signal });
+      });
+      yield entry(enteredUp);
+      yield exit(exitedUp);
+      yield listenTo(el, ["pointerdown"]);
+      yield on("pointerdown", Down);
+
+    }
+    function* Down() {
+      yield entry(enteredDown);
+      yield listenTo(el, ["pointermove", "pointerup"]);
+      yield on("pointermove", Dragging);
+      yield on("pointerup", Clicked);
+    }
+    function* Dragging() {
+      const aborter = new AbortController();
+      yield exit(() => aborter.abort());
+
+      yield entry(enteredDragging);
+      yield entry(() => {
+        el.addEventListener("pointermove", event => {
+          if (dragOrigin == null) return;
+
+          const deltaX = event.clientX - dragOrigin.x;
+          const deltaY = event.clientY - dragOrigin.y;
+          el.style.left = `${deltaX}px`;
+          el.style.top = `${deltaY}px`;
+        }, { signal: aborter.signal });
+      });
+      yield listenTo(el, ["pointerup"]);
+      yield on("pointerup", Dropped);
+    }
+    function* Clicked() {
+      yield entry(enteredClicked);
+      yield* Up();
+    }
+    function* Dropped() {
+      yield entry(enteredDropped);
+      yield* Up();
+    }
+
+    return Up;
+  }
+
+  it("works with clicking", () => {
+    const button = document.createElement('button');
+    const machine = start(DraggableMachine.bind(null, button));
+
+    expect(machine.value).toMatchObject({ state: "Up", change: 0 });
+    expect(enteredUp).toHaveBeenCalledTimes(1);
+    expect(exitedUp).toHaveBeenCalledTimes(0);
+    expect(enteredDown).toHaveBeenCalledTimes(0);
+    expect(enteredDragging).toHaveBeenCalledTimes(0);
+    expect(enteredClicked).toHaveBeenCalledTimes(0);
+    expect(enteredDropped).toHaveBeenCalledTimes(0);
+
+    button.dispatchEvent(new MouseEvent('pointerdown'));
+    expect(machine.value).toMatchObject({ state: "Down", change: 1 });
+    expect(enteredUp).toHaveBeenCalledTimes(1);
+    expect(exitedUp).toHaveBeenCalledTimes(1);
+    expect(enteredDown).toHaveBeenCalledTimes(1);
+    expect(enteredDragging).toHaveBeenCalledTimes(0);
+    expect(enteredClicked).toHaveBeenCalledTimes(0);
+    expect(enteredDropped).toHaveBeenCalledTimes(0);
+
+    button.dispatchEvent(new MouseEvent('pointerup'));
+    expect(machine.value).toMatchObject({ state: "Clicked", change: 2 });
+    expect(enteredUp).toHaveBeenCalledTimes(2);
+    expect(exitedUp).toHaveBeenCalledTimes(1);
+    expect(enteredDown).toHaveBeenCalledTimes(1);
+    expect(enteredDragging).toHaveBeenCalledTimes(0);
+    expect(enteredClicked).toHaveBeenCalledTimes(1);
+    expect(enteredDropped).toHaveBeenCalledTimes(0);
+  });
+
+  it("works with dragging", () => {
+    const button = document.createElement('button');
+    const machine = start(DraggableMachine.bind(null, button));
+
+    expect(machine.value).toMatchObject({ state: "Up", change: 0 });
+    expect(enteredUp).toHaveBeenCalledTimes(1);
+    expect(exitedUp).toHaveBeenCalledTimes(0);
+    expect(enteredDown).toHaveBeenCalledTimes(0);
+    expect(enteredDragging).toHaveBeenCalledTimes(0);
+    expect(enteredClicked).toHaveBeenCalledTimes(0);
+    expect(enteredDropped).toHaveBeenCalledTimes(0);
+
+    button.dispatchEvent(new MouseEvent('pointerdown'));
+    expect(machine.value).toMatchObject({ state: "Down", change: 1 });
+    expect(enteredUp).toHaveBeenCalledTimes(1);
+    expect(exitedUp).toHaveBeenCalledTimes(1);
+    expect(enteredDown).toHaveBeenCalledTimes(1);
+    expect(enteredDragging).toHaveBeenCalledTimes(0);
+    expect(enteredClicked).toHaveBeenCalledTimes(0);
+    expect(enteredDropped).toHaveBeenCalledTimes(0);
+
+    button.dispatchEvent(new MouseEvent('pointermove'));
+    expect(machine.value).toMatchObject({ state: "Dragging", change: 2 });
+    expect(enteredUp).toHaveBeenCalledTimes(1);
+    expect(exitedUp).toHaveBeenCalledTimes(1);
+    expect(enteredDown).toHaveBeenCalledTimes(1);
+    expect(enteredDragging).toHaveBeenCalledTimes(1);
+    expect(enteredClicked).toHaveBeenCalledTimes(0);
+    expect(enteredDropped).toHaveBeenCalledTimes(0);
+
+    button.dispatchEvent(new MouseEvent('pointermove'));
+    expect(machine.value).toMatchObject({ state: "Dragging", change: 2 });
+    expect(enteredUp).toHaveBeenCalledTimes(1);
+    expect(exitedUp).toHaveBeenCalledTimes(1);
+    expect(enteredDown).toHaveBeenCalledTimes(1);
+    expect(enteredDragging).toHaveBeenCalledTimes(1);
+    expect(enteredClicked).toHaveBeenCalledTimes(0);
+    expect(enteredDropped).toHaveBeenCalledTimes(0);
+
+    button.dispatchEvent(new MouseEvent('pointerup'));
+    expect(machine.value).toMatchObject({ state: "Dropped", change: 4 });
+    expect(enteredUp).toHaveBeenCalledTimes(2);
+    expect(exitedUp).toHaveBeenCalledTimes(1);
+    expect(enteredDown).toHaveBeenCalledTimes(1);
+    expect(enteredDragging).toHaveBeenCalledTimes(1);
+    expect(enteredClicked).toHaveBeenCalledTimes(0);
+    expect(enteredDropped).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -816,7 +1004,7 @@ describe("FIXME: Key shortcut click highlighting too many event listeners bug", 
       state: "Open",
       change: 14,
     });
-    
+
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
     expect(machine.value).toMatchObject({
       state: "Closed",
@@ -877,7 +1065,7 @@ describe("Key shortcut cond reading event", () => {
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'a' }));
     expect(machine.current).toEqual("Open");
     expect(machine.changeCount).toEqual(1);
-    
+
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
     expect(machine.current).toEqual("Closed");
     expect(machine.changeCount).toEqual(2);
@@ -897,7 +1085,7 @@ describe("accumulate()", () => {
     // yield on(new Map([["type", "error"], ["readyState", EventSource.CLOSED]]), Closed);
     yield listenTo(eventTarget, "error");
     yield on("error", compound(Closed));
-    
+
     function* Open() {
       yield listenTo(eventTarget, "message");
       yield accumulate("message", messagesKey);
@@ -909,8 +1097,8 @@ describe("accumulate()", () => {
       //   yield event;
       // });
     }
-    function* Closed() {}
-    
+    function* Closed() { }
+
     return function* Connecting() {
       yield listenTo(eventTarget, "open");
       yield on("open", Open);
@@ -927,7 +1115,7 @@ describe("accumulate()", () => {
     machine.signal.addEventListener("AccumulationsChanged", accumulationsChangedListener);
 
     expect(machine.current).toEqual("Connecting");
-    
+
     eventTarget.dispatchEvent(new Event("open"));
     expect(machine.current).toEqual("Open");
     expect(machine.accumulations).toEqual(new Map());
@@ -951,17 +1139,17 @@ describe("accumulate()", () => {
     expect(machine.accumulations).toEqual(new Map([[messagesKey, [event1, event2]]]));
     expect(accumulationsChangedListener).toHaveBeenCalledTimes(2);
     expect(accumulationsChangedListener).toHaveBeenLastCalledWith(expect.objectContaining({ type: "AccumulationsChanged" }));
-    
+
     eventTarget.dispatchEvent(event3);
     expect(machine.current).toEqual("Open");
     expect(machine.accumulations).toEqual(new Map([[messagesKey, [event1, event2, event3]]]));
     expect(accumulationsChangedListener).toHaveBeenCalledTimes(3);
-    
+
     eventTarget.dispatchEvent(new Event("error"));
     expect(machine.current).toEqual("Closed");
     expect(machine.accumulations).toEqual(new Map());
     expect(accumulationsChangedListener).toHaveBeenCalledTimes(3);
-    
+
     eventTarget.dispatchEvent(event4);
     expect(machine.current).toEqual("Closed");
     expect(machine.accumulations).toEqual(new Map());
@@ -1014,16 +1202,16 @@ describe("accumulate()", () => {
     //     }
     //   }
     // })
-    
+
     yield on("RESET", compound(initial));
     yield on("INCREMENT", compound(positive));
-    
+
     // const counter = yield reducer("counter", 0, n => n + 1);
     // const counter = yield reducer(0, {
     //   increment: n => n + 1,
     //   reset: () => 0
     // });
-    
+
     // yield on("INCREMENT", counter.increment);
     // yield on("RESET", counter.reset);
 
@@ -1042,7 +1230,7 @@ describe("accumulate()", () => {
     //   return 0;
     // }))({ increment: (n) => n + 1, reset: () => 0 });
 
-    
+
     yield on("INCREMENT", Counter(n => n + 1));
     yield on("RESET", Counter(0));
 
@@ -1056,22 +1244,22 @@ describe("accumulate()", () => {
     const machine = start(Counter);
     expect(machine.current).toEqual("initial");
     expect(machine.results).resolves.toEqual({ counter: 0 });
-    
+
     machine.next("INCREMENT");
     expect(machine.current).toEqual("positive");
     expect(machine.changeCount).toEqual(1);
     expect(machine.results).resolves.toEqual({ counter: 1 });
-    
+
     machine.next("INCREMENT");
     expect(machine.current).toEqual("positive");
     expect(machine.changeCount).toEqual(1);
     expect(machine.results).resolves.toEqual({ counter: 1 });
-    
+
     machine.next("RESET");
     expect(machine.current).toEqual("initial");
     expect(machine.changeCount).toEqual(2);
     expect(machine.results).resolves.toEqual({ counter: 0 });
 
-    
+
   });
 });*/
