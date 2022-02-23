@@ -803,6 +803,8 @@ describe("Button click", () => {
 });
 
 describe("Hovering machine", () => {
+  const pointerDownListener = jest.fn();
+  beforeEach(pointerDownListener.mockClear);
   const enteredUp = jest.fn();
   beforeEach(enteredUp.mockClear);
   const exitedUp = jest.fn();
@@ -821,10 +823,15 @@ describe("Hovering machine", () => {
 
     function* Up() {
       yield entry(({ signal }) => {
-        el.addEventListener("pointerdown", event => {
+        function handler(event: PointerEvent) {
           dragOrigin = { x: event.clientX, y: event.clientY };
-          console.log(dragOrigin);
-        }, { signal });
+          pointerDownListener();
+        }
+        el.addEventListener("pointerdown", handler, { signal });
+        // Have to do this as it seems jsdom doesn’t support passing a signal.
+        signal.addEventListener('abort', () => {
+          el.removeEventListener('pointerdown', handler);
+        }, { once: true });
       });
       yield entry(enteredUp);
       yield exit(exitedUp);
@@ -841,17 +848,30 @@ describe("Hovering machine", () => {
     function* Dragging() {
       yield entry(enteredDragging);
       yield entry(({ signal }) => {
-        el.addEventListener("pointermove", event => {
+        function handler(event: PointerEvent) {
           if (dragOrigin == null) return;
 
           const deltaX = event.clientX - dragOrigin.x;
           const deltaY = event.clientY - dragOrigin.y;
           el.style.left = `${deltaX}px`;
           el.style.top = `${deltaY}px`;
-        }, { signal });
+        }
+        el.addEventListener("pointermove", handler, { signal });
+        signal.addEventListener('abort', () => {
+          el.removeEventListener('pointermove', handler);
+        }, { once: true });
       });
       yield listenTo(el, ["pointerup"]);
       yield on("pointerup", Dropped);
+
+      // const downEvent = yield lastReceived("pointerdown");
+      // const moveEvent = yield lastReceived("pointermove");
+      // yield effect(() => {
+      //   const deltaX = moveEvent.clientX - downEvent.clientX;
+      //   const deltaY = moveEvent.clientY - downEvent.clientY;
+      //   el.style.left = `${deltaX}px`;
+      //   el.style.top = `${deltaY}px`;
+      // })
     }
     function* Clicked() {
       yield entry(enteredClicked);
@@ -865,11 +885,12 @@ describe("Hovering machine", () => {
     return Up;
   }
 
-  it("works with clicking", () => {
+  it.only("works with clicking", () => {
     const button = document.createElement('button');
     const machine = start(DraggableMachine.bind(null, button));
 
     expect(machine.value).toMatchObject({ state: "Up", change: 0 });
+    expect(pointerDownListener).toHaveBeenCalledTimes(0);
     expect(enteredUp).toHaveBeenCalledTimes(1);
     expect(exitedUp).toHaveBeenCalledTimes(0);
     expect(enteredDown).toHaveBeenCalledTimes(0);
@@ -879,6 +900,7 @@ describe("Hovering machine", () => {
 
     button.dispatchEvent(new MouseEvent('pointerdown'));
     expect(machine.value).toMatchObject({ state: "Down", change: 1 });
+    expect(pointerDownListener).toHaveBeenCalledTimes(1);
     expect(enteredUp).toHaveBeenCalledTimes(1);
     expect(exitedUp).toHaveBeenCalledTimes(1);
     expect(enteredDown).toHaveBeenCalledTimes(1);
@@ -888,11 +910,32 @@ describe("Hovering machine", () => {
 
     button.dispatchEvent(new MouseEvent('pointerup'));
     expect(machine.value).toMatchObject({ state: "Clicked", change: 2 });
+    expect(pointerDownListener).toHaveBeenCalledTimes(1);
     expect(enteredUp).toHaveBeenCalledTimes(2);
     expect(exitedUp).toHaveBeenCalledTimes(1);
     expect(enteredDown).toHaveBeenCalledTimes(1);
     expect(enteredDragging).toHaveBeenCalledTimes(0);
     expect(enteredClicked).toHaveBeenCalledTimes(1);
+    expect(enteredDropped).toHaveBeenCalledTimes(0);
+
+    button.dispatchEvent(new MouseEvent('pointerdown'));
+    expect(machine.value).toMatchObject({ state: "Down", change: 3 });
+    expect(pointerDownListener).toHaveBeenCalledTimes(2);
+    expect(enteredUp).toHaveBeenCalledTimes(2);
+    expect(exitedUp).toHaveBeenCalledTimes(2);
+    expect(enteredDown).toHaveBeenCalledTimes(2);
+    expect(enteredDragging).toHaveBeenCalledTimes(0);
+    expect(enteredClicked).toHaveBeenCalledTimes(1);
+    expect(enteredDropped).toHaveBeenCalledTimes(0);
+
+    button.dispatchEvent(new MouseEvent('pointerup'));
+    expect(machine.value).toMatchObject({ state: "Clicked", change: 4 });
+    expect(pointerDownListener).toHaveBeenCalledTimes(2);
+    expect(enteredUp).toHaveBeenCalledTimes(3);
+    expect(exitedUp).toHaveBeenCalledTimes(2);
+    expect(enteredDown).toHaveBeenCalledTimes(2);
+    expect(enteredDragging).toHaveBeenCalledTimes(0);
+    expect(enteredClicked).toHaveBeenCalledTimes(2);
     expect(enteredDropped).toHaveBeenCalledTimes(0);
   });
 
@@ -942,6 +985,24 @@ describe("Hovering machine", () => {
     expect(enteredDown).toHaveBeenCalledTimes(1);
     expect(enteredDragging).toHaveBeenCalledTimes(1);
     expect(enteredClicked).toHaveBeenCalledTimes(0);
+    expect(enteredDropped).toHaveBeenCalledTimes(1);
+
+    button.dispatchEvent(new MouseEvent('pointerdown'));
+    expect(machine.value).toMatchObject({ state: "Down", change: 4 });
+    expect(enteredUp).toHaveBeenCalledTimes(2);
+    expect(exitedUp).toHaveBeenCalledTimes(2);
+    expect(enteredDown).toHaveBeenCalledTimes(2);
+    expect(enteredDragging).toHaveBeenCalledTimes(1);
+    expect(enteredClicked).toHaveBeenCalledTimes(0);
+    expect(enteredDropped).toHaveBeenCalledTimes(1);
+
+    button.dispatchEvent(new MouseEvent('pointerup'));
+    expect(machine.value).toMatchObject({ state: "Clicked", change: 5 });
+    expect(enteredUp).toHaveBeenCalledTimes(3);
+    expect(exitedUp).toHaveBeenCalledTimes(2);
+    expect(enteredDown).toHaveBeenCalledTimes(2);
+    expect(enteredDragging).toHaveBeenCalledTimes(1);
+    expect(enteredClicked).toHaveBeenCalledTimes(1);
     expect(enteredDropped).toHaveBeenCalledTimes(1);
   });
 });

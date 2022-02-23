@@ -147,6 +147,7 @@ export interface MachineInstance extends Iterator<MachineValue, void, string | s
 }
 
 class Handlers {
+  private aborter = new AbortController();
   private eventsMap = new Map<string | symbol, Target>();
   private alwaysArray = new Array<Target>();
   private entryActions = [] as Array<EntryAction>;
@@ -157,11 +158,18 @@ class Handlers {
   public readonly eventsToListenTo = new Array<[string, EventTarget]>();
   public readonly eventsToAccumulate = new Array<[string | symbol, symbol]>();
 
+  get signal() {
+    return this.aborter.signal;
+  }
+
   *actions(): Generator<EntryAction, void, undefined> {
     yield* this.entryActions;
   }
 
   reset() {
+    this.aborter.abort();
+    this.aborter = new AbortController();
+
     this.eventsMap.clear();
     this.entryActions.splice(0, Infinity);
     this.exitActions.splice(0, Infinity);
@@ -172,14 +180,14 @@ class Handlers {
     this.eventsToAccumulate.splice(0, Infinity);
   }
 
-  add(value: Yielded, signal: AbortSignal, readContext: (contextName: string | symbol) => unknown): unknown | void {
+  add(value: Yielded, readContext: (contextName: string | symbol) => unknown): unknown | void {
     if (value.type === "entry") {
       this.entryActions.push(value);
 
       const skip = Symbol();
       const resultPromise = new Promise((resolve) => {
         if (value.message === undefined) {
-          const result = value.f({ signal });
+          const result = value.f({ signal: this.aborter.signal });
           this.actionResults.set(value.f.name, result);
           resolve(result);
         } else {
@@ -253,7 +261,6 @@ class InternalInstance {
   private resolved = null as Promise<Record<string, any>> | null
   private accumulations: Map<symbol | string, Array<symbol | string | Event>> = new Map();
   private aborter = new AbortController();
-  private eventAborter = new AbortController();
   child: null | InternalInstance = null
 
   constructor(
@@ -340,13 +347,11 @@ class InternalInstance {
   }
 
   cleanup() {
-    this.eventAborter.abort();
     this.globalHandlers.reset();
   }
 
   consume(stateGenerator: (() => StateDefinition) | (() => Generator<Yielded, StateDefinition, never>)) {
     // this.cleanup();
-    this.eventAborter = new AbortController();
 
     this.willEnter();
 
@@ -362,7 +367,8 @@ class InternalInstance {
           break;
         }
 
-        reply = this.globalHandlers.add(item.value, this.signal, this.callbacks.readContext);
+        // reply = this.globalHandlers.add(item.value, this.signal, this.callbacks.readContext);
+        reply = this.globalHandlers.add(item.value, this.callbacks.readContext);
       }
 
       const promise = this.globalHandlers.finish();
@@ -380,7 +386,7 @@ class InternalInstance {
       }
 
       for (const [event, target] of this.globalHandlers.eventsToListenTo) {
-        target.addEventListener(event, this, { signal: this.eventAborter.signal } as AddEventListenerOptions);
+        target.addEventListener(event, this, { signal: this.globalHandlers.signal } as AddEventListenerOptions);
       }
 
     }
@@ -404,9 +410,9 @@ class InternalInstance {
   }
 
   willExit() {
+    this.aborter.abort();
     this.globalHandlers.runExit();
     this.globalHandlers.reset();
-    this.eventAborter.abort();
   }
 
   transitionTo(stateDefinition?: StateDefinition) {
@@ -517,6 +523,7 @@ export function start(
       },
       sendEvent(event, snapshotCount) {
         if (typeof snapshotCount === "number" && snapshotCount !== _changeCount) {
+          // TODO: add a test that verifies this behaviour.
           return;
         }
         instance.receive(event);
