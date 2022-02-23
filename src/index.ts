@@ -94,8 +94,8 @@ export function exit(f: ExitActionBody): ExitAction {
   return { type: "exit", f };
 }
 
-export function listenTo(sender: EventTarget, eventNames: string | Array<string>): ListenTo {
-  return { type: "listenTo", sender, eventNames: ([] as Array<string>).concat(eventNames) };
+export function listenTo(sender: EventTarget, eventNames: Array<string>): ListenTo {
+  return { type: "listenTo", sender, eventNames: Array.from(eventNames) };
 }
 
 export function send<Method extends string | symbol, Arguments extends any[]>(target: () => Record<Method, (...args: Arguments) => void>, method: Method, args: Arguments): Send<Method, Arguments> {

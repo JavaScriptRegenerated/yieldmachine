@@ -596,8 +596,7 @@ describe.skip("Switch as class", () => {
 
 describe("Wrapping navigator online as a state machine", () => {
   function* OfflineStatus() {
-    yield listenTo(window, "online");
-    yield listenTo(window, "offline");
+    yield listenTo(window, ["online", "offline"]);
     yield on("online", compound(Online));
     yield on("offline", compound(Offline));
 
@@ -681,7 +680,7 @@ describe("Wrapping AbortController as a state machine", () => {
         yield always(Aborted);
       } else {
         yield on("abort", Aborted);
-        yield listenTo(controller.signal, "abort");
+        yield listenTo(controller.signal, ["abort"]);
       }
     }
     function* Aborted() { }
@@ -779,7 +778,7 @@ describe("Button click", () => {
   function ButtonClickListener(button: HTMLButtonElement) {
     function* Initial() {
       yield on("click", Clicked);
-      yield listenTo(button, "click");
+      yield listenTo(button, ["click"]);
     }
     function* Clicked() { }
 
@@ -951,7 +950,7 @@ describe("FIXME: Key shortcut click highlighting too many event listeners bug", 
   function KeyShortcutListener(el: HTMLElement) {
     function* Open() {
       yield on("keydown", OpenCheckingKey);
-      yield listenTo(el, "keydown");
+      yield listenTo(el, ["keydown"]);
     }
     function* OpenCheckingKey() {
       const event: KeyboardEvent = yield readContext("event");
@@ -961,7 +960,7 @@ describe("FIXME: Key shortcut click highlighting too many event listeners bug", 
     }
     function* Closed() {
       yield on("keydown", ClosedCheckingKey);
-      yield listenTo(el, "keydown");
+      yield listenTo(el, ["keydown"]);
     }
     function* ClosedCheckingKey() {
       const event: KeyboardEvent = yield readContext("event");
@@ -1020,7 +1019,7 @@ describe("FIXME: Key shortcut click highlighting too many event listeners bug", 
 describe("Key shortcut cond reading event", () => {
   function KeyShortcutListener(el: HTMLElement) {
     function* Open() {
-      yield listenTo(el, "keydown");
+      yield listenTo(el, ["keydown"]);
       yield on(
         "keydown",
         cond((readContext) => {
@@ -1030,7 +1029,7 @@ describe("Key shortcut cond reading event", () => {
       );
     }
     function* Closed() {
-      yield listenTo(el, "keydown");
+      yield listenTo(el, ["keydown"]);
       yield on(
         "keydown",
         cond((readContext) => {
@@ -1080,11 +1079,11 @@ describe("accumulate()", () => {
 
   function* Machine(eventTarget: EventTarget) {
     // yield on(new Map([["type", "error"], ["readyState", EventSource.CLOSED]]), Closed);
-    yield listenTo(eventTarget, "error");
+    yield listenTo(eventTarget, ["error"]);
     yield on("error", compound(Closed));
 
     function* Open() {
-      yield listenTo(eventTarget, "message");
+      yield listenTo(eventTarget, ["message"]);
       yield accumulate("message", messagesKey);
       // TODO:
       // yield accumulate("message", messagesKey, function*(event, previous) {
@@ -1097,7 +1096,7 @@ describe("accumulate()", () => {
     function* Closed() { }
 
     return function* Connecting() {
-      yield listenTo(eventTarget, "open");
+      yield listenTo(eventTarget, ["open"]);
       yield on("open", Open);
     }
   }

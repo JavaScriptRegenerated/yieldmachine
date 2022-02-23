@@ -28,15 +28,15 @@ describe("Egghead", () => {
 
     it("works as expected", () => {
       const heater = start(SpaceHeater);
-  
+
       expect(heater.value.state).toEqual("PoweredOff");
-      
+
       heater.next("TOGGLE_POWER");
       expect(heater.value.state).toEqual({ "PoweredOn": "LowHeat" });
-      
+
       heater.next("TOGGLE_HEAT");
       expect(heater.value.state).toEqual({ "PoweredOn": "HighHeat" });
-      
+
       heater.next("TOGGLE_POWER");
       expect(heater.value.state).toEqual("PoweredOff");
     });
