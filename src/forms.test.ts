@@ -126,7 +126,7 @@ describe("Textbox validation", () => {
     return _CheckingActive;
   }
 
-  it("listens when element receives and loses focus", () => {
+  it("listens when element receives and loses focus", async () => {
     const aborter = new AbortController();
     const input = document.body.appendChild(document.createElement("input"));
 
@@ -136,31 +136,33 @@ describe("Textbox validation", () => {
       state: "Inactive",
     });
 
-    user.click(input);
+    await user.click(input);
     expect(machine.value).toMatchObject({
       change: 2,
       state: "Active",
     });
 
-    user.click(document.body);
+    await user.click(document.body);
     expect(machine.value).toMatchObject({
       change: 4,
       state: "Inactive",
     });
 
-    user.paste(input, "hello");
+    await user.click(input);
+    await user.paste("hello");
     expect(machine.value).toMatchObject({
       change: 8,
       state: "Valid",
     });
 
-    user.clear(input);
+    await user.clear(input);
     expect(machine.value).toMatchObject({
       change: 10,
       state: "InvalidCannotBeEmpty",
     });
 
-    user.paste(input, "HELLO");
+    await user.click(input);
+    await user.paste("HELLO");
     expect(machine.value).toMatchObject({
       change: 12,
       state: "InvalidMustBeLowercase",

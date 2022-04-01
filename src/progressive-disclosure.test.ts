@@ -35,7 +35,7 @@ describe("Element focus", () => {
     return CheckingOpen;
   }
 
-  it("listens when opens and closed", () => {
+  it("listens when opens and closed", async () => {
     const aborter = new AbortController();
 
     const detailsEl = document.body.appendChild(document.createElement("details"));
@@ -47,29 +47,29 @@ describe("Element focus", () => {
     expect(machine.current).toEqual("Closed");
     expect(machine.changeCount).toEqual(0);
 
-    user.click(summaryEl);
+    await user.click(summaryEl);
     expect(detailsEl.open).toBe(true);
     detailsEl.dispatchEvent(new Event('toggle'));
     expect(machine.current).toEqual("Open");
     expect(machine.changeCount).toEqual(2);
 
-    user.click(summaryEl);
+    await user.click(summaryEl);
     expect(detailsEl.open).toBe(false);
     detailsEl.dispatchEvent(new Event('toggle'));
     expect(machine.current).toEqual("Closed");
-    expect(machine.changeCount).toEqual(4);
+    expect(machine.changeCount).toEqual(6);
 
     aborter.abort();
     detailsEl.remove();
   });
 
-  it("is initially Open if element is already open when starting", () => {
+  it("is initially Open if element is already open when starting", async () => {
     const aborter = new AbortController();
     const detailsEl = document.body.appendChild(document.createElement("details"));
     const summaryEl = detailsEl.appendChild(document.createElement("summary"));
     detailsEl.appendChild(document.createElement("div"));
 
-    user.click(summaryEl);
+    await user.click(summaryEl);
 
     const machine = start(DetailsListener.bind(null, detailsEl), { signal: aborter.signal });
 
