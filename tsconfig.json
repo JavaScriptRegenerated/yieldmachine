@@ -2,6 +2,7 @@
   // see https://www.typescriptlang.org/tsconfig to better understand tsconfigs
   "include": ["src", "types"],
   "compilerOptions": {
+    "jsx": "react",
     "module": "ESNext",
     "target": "ESNext",
     "lib": ["dom", "ES2019"],
@@ -14,6 +15,7 @@
     "rootDir": "./src",
     // stricter type-checking for stronger correctness. Recommended by TS
     // "strict": true,
+    "strict": true,
     "strictNullChecks": true,
     // linter checks for common issues
     "noImplicitReturns": true,
