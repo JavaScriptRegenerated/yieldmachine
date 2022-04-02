@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 
-import React, { useEffect, useRef, useSyncExternalStore } from 'react';
+import React, { StrictMode, useEffect, useReducer, useRef, useSyncExternalStore } from 'react';
 import "@testing-library/jest-dom";
 import { render } from "@testing-library/react";
 import user from "@testing-library/user-event"
@@ -33,20 +33,28 @@ describe("simple button", () => {
   }
 
   function useAbortSignal() {
-    const abortControllerRef = useRef<AbortController | null>(null);
-    function ensureCreated() {
-      if (abortControllerRef.current === null) {
-        abortControllerRef.current = new AbortController();
+    const [controller, dispatch] = useReducer((controller: AbortController | null, action: boolean) => {
+      if (action) {
+        if (controller !== null && !controller.signal.aborted) {
+          return controller;
+        }
+        return new AbortController();
+      } else {
+        controller?.abort();
+        return controller;
       }
-    }
+    }, null, () => new AbortController());
+
     useEffect(() => {
-      ensureCreated();
+      // console.log('send create');
+      dispatch(true);
       return () => {
-        abortControllerRef.current?.abort();
-      }
-    });
-    ensureCreated();
-    return abortControllerRef.current!.signal;
+        console.log('send abort');
+        dispatch(false);
+      };
+    }, [dispatch]);
+
+    return controller?.signal;
   }
 
   function Button() {
@@ -61,8 +69,8 @@ describe("simple button", () => {
       machineRef.current?.eventTarget.addEventListener('StateChanged', callback);
       return () => {
         machineRef.current?.eventTarget.removeEventListener('StateChanged', callback);
-      }
-    }, () => machineRef.current?.value.state)
+      };
+    }, () => machineRef.current?.value.state);
 
     return <>
       <button onClick={() => {
@@ -73,13 +81,15 @@ describe("simple button", () => {
   }
 
   test("starts as initially", () => {
-    const queries = render(<Button />);
+    const queries = render(<StrictMode><Button /></StrictMode>);
     expect(queries.getByRole('status')).toHaveTextContent('Initial');
+    queries.unmount();
   });
 
   test("changes on click as initially", async () => {
-    const queries = render(<Button />);
+    const queries = render(<StrictMode><Button /></StrictMode>);
     await user.click(queries.getByRole('button', { name: 'Click me' }));
     expect(queries.getByRole('status')).toHaveTextContent('Activated');
+    queries.unmount();
   });
 });
