@@ -20,6 +20,8 @@ import {
   onceStateChangesTo,
   readContext,
   MachineInstance,
+  StateDefinition,
+  Yielded,
 } from "./index";
 
 describe("simple button", () => {
@@ -33,8 +35,8 @@ describe("simple button", () => {
   }
 
   function useAbortSignal() {
-    const [controller, dispatch] = useReducer((controller: AbortController | null, action: boolean) => {
-      if (action) {
+    const [controller, dispatch] = useReducer((controller: AbortController | null, create: boolean) => {
+      if (create) {
         if (controller !== null && !controller.signal.aborted) {
           return controller;
         }
@@ -57,11 +59,11 @@ describe("simple button", () => {
     return controller?.signal;
   }
 
-  function Button() {
+  function useMachine(machineDefinition: Parameters<typeof start>[0]) {
     const abortSignal = useAbortSignal();
     const machineRef = useRef<MachineInstance | null>(null);
     if (machineRef.current === null) {
-      const machine = start(ClickMachine, { signal: abortSignal });
+      const machine = start(machineDefinition, { signal: abortSignal });
       machineRef.current = machine;
     }
 
@@ -72,9 +74,19 @@ describe("simple button", () => {
       };
     }, () => machineRef.current?.value.state);
 
+    function dispatch(event: string | symbol) {
+      machineRef.current?.next(event);
+    }
+
+    return Object.freeze([state, dispatch]);
+  }
+
+  function Button() {
+    const [state, dispatch] = useMachine(ClickMachine);
+
     return <>
       <button onClick={() => {
-        machineRef.current?.next('click');
+        dispatch('click');
       }}>Click me</button>
       <output>{state}</output>
     </>
@@ -83,13 +95,13 @@ describe("simple button", () => {
   test("starts as initially", () => {
     const queries = render(<StrictMode><Button /></StrictMode>);
     expect(queries.getByRole('status')).toHaveTextContent('Initial');
-    queries.unmount();
+    // queries.unmount();
   });
 
   test("changes on click as initially", async () => {
     const queries = render(<StrictMode><Button /></StrictMode>);
     await user.click(queries.getByRole('button', { name: 'Click me' }));
     expect(queries.getByRole('status')).toHaveTextContent('Activated');
-    queries.unmount();
+    // queries.unmount();
   });
 });
