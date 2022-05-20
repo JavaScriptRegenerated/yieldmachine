@@ -34,9 +34,12 @@ import {
 describe("simple button", () => {
   function ClickMachine() {
     function* Initial() {
-      yield on("click", Activated);
+      yield on("click", Once);
     }
-    function* Activated() {}
+    function* Once() {
+      yield on("click", Twice);
+    }
+    function* Twice() {}
 
     return Initial;
   }
@@ -129,14 +132,27 @@ describe("simple button", () => {
     // queries.unmount();
   });
 
-  it("changes on click as initially", async () => {
+  it("allows one event", async () => {
     const queries = render(
       <StrictMode>
         <Button />
       </StrictMode>
     );
     await user.click(queries.getByRole("button", { name: "Click me" }));
-    expect(queries.getByRole("status")).toHaveTextContent("Activated");
+    expect(queries.getByRole("status")).toHaveTextContent("Once");
+    // queries.unmount();
+  });
+
+  it("allows multiple events", async () => {
+    const queries = render(
+      <StrictMode>
+        <Button />
+      </StrictMode>
+    );
+    const button = queries.getByRole("button", { name: "Click me" });
+    await user.click(button);
+    await user.click(button);
+    expect(queries.getByRole("status")).toHaveTextContent("Twice");
     // queries.unmount();
   });
 
