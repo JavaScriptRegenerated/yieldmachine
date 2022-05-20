@@ -51,13 +51,13 @@ describe("Element focus", () => {
     expect(detailsEl.open).toBe(true);
     detailsEl.dispatchEvent(new Event('toggle'));
     expect(machine.current).toEqual("Open");
-    expect(machine.changeCount).toEqual(2);
+    expect(machine.changeCount).toEqual(4);
 
     await user.click(summaryEl);
     expect(detailsEl.open).toBe(false);
     detailsEl.dispatchEvent(new Event('toggle'));
     expect(machine.current).toEqual("Closed");
-    expect(machine.changeCount).toEqual(6);
+    expect(machine.changeCount).toEqual(8);
 
     aborter.abort();
     detailsEl.remove();
