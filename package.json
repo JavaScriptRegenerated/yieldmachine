@@ -1,51 +1,9 @@
 {
-  "name": "yieldmachine",
-  "amdName": "yieldmachine",
-  "version": "0.5.0",
-  "description": "Declarative state machines using generator functions",
-  "source": "src/index.ts",
-  "main": "dist/yieldmachine.js",
-  "module": "dist/yieldmachine.module.js",
-  "types": "dist/index.d.ts",
-  "exports": {
-    ".": {
-      "browser": "./dist/yieldmachine.module.js",
-      "import": "./dist/yieldmachine.module.js",
-      "require": "./dist/yieldmachine.js"
-    }
-  },
-  "targets": {
-    "main": {
-      "optimize": true
-    },
-    "module": {
-      "optimize": true
-    }
-  },
-  "scripts": {
-    "prepack": "jest && npm run build && node tests/node.js",
-    "dev": "parcel watch",
-    "build": "parcel build",
-    "test": "jest --watch"
-  },
-  "author": "Patrick Smith",
+  "name": "yieldmachine-monorepo",
+  "private": true,
   "license": "MIT",
-  "devDependencies": {
-    "@parcel/packager-ts": "^2.0.0",
-    "@parcel/transformer-typescript-types": "^2.0.0",
-    "@swc/core": "^1.2.162",
-    "@swc/jest": "^0.2.20",
-    "@testing-library/dom": "^8.13.0",
-    "@testing-library/jest-dom": "^5.16.4",
-    "@testing-library/react": "^13.2.0",
-    "@testing-library/user-event": "^14.2.0",
-    "@types/jest": "^27.4.1",
-    "@types/react": "^18.0.9",
-    "@types/react-dom": "^18.0.4",
-    "jest": "^27.5.1",
-    "parcel": "^2.0.0",
-    "react": "^18.1.0",
-    "react-dom": "^18.1.0",
-    "typescript": "^4.6.3"
+  "scripts": {
+    "test": "make test-all",
+    "changeset": "changeset"
   }
 }
