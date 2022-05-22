@@ -3,7 +3,7 @@
   "private": true,
   "license": "MIT",
   "scripts": {
-    "test": "make test-all",
+    "test": "make test_all",
     "changeset": "changeset"
   }
 }

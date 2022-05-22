@@ -6,5 +6,10 @@ test_node_15:
 	@asdf install nodejs 15.14.0
 	source $(ASDF_DIR)/asdf.sh && asdf shell nodejs 15.14.0 && npm t
 
-test_all:
-	CI=true cd packages/yieldmachine && npm t
+packages = yieldmachine yieldmachine-react
+
+$(foreach package,$(packages),$(package)):
+	cd packages/$@ && npm exec -- jest
+
+test_all: $(packages)
+	echo "done"
