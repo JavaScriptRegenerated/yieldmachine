@@ -194,7 +194,7 @@ class Handlers {
           const instance = this.actionResults.get(value.f.name);
           const [method, args] = value.message;
           if (instance != null && method in (instance as {})) {
-            (instance as {})[method].apply(instance, args);
+            (instance as Record<string | symbol, Function>)[method].apply(instance, args);
           }
           resolve(skip);
         }
