@@ -517,7 +517,7 @@ class InternalInstance {
         const result: boolean = cond === null ? true : cond();
         if (result === true) {
           this.transitionTo(checkTarget);
-          return true;
+          return;
         }
       }
     } else {
