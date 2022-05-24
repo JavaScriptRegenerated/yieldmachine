@@ -18,13 +18,13 @@ import {
   ReadContextCallback,
 } from "./index";
 
-test("node version " + process.version, () => { });
+test("node version " + process.version, () => {});
 
 function useEach(work: () => () => void) {
   let cleanup: null | (() => void) = null;
   beforeEach(() => {
     cleanup = work();
-  })
+  });
   afterEach(() => {
     cleanup?.call(null);
   });
@@ -80,7 +80,7 @@ describe("Machine with entry and exit actions", () => {
       expect(loader.value).toMatchObject({
         change: 0,
         state: "idle",
-        actions: []
+        actions: [],
       });
       expect(loader.value).toBe(loader.value);
       expect(loader.changeCount).toEqual(0);
@@ -98,16 +98,12 @@ describe("Machine with entry and exit actions", () => {
       expect(transitionResult.value).toMatchObject({
         change: 1,
         state: "loading",
-        actions: [
-          { type: "entry", f: fetchData }
-        ]
+        actions: [{ type: "entry", f: fetchData }],
       });
       expect(loader.value).toMatchObject({
         change: 1,
         state: "loading",
-        actions: [
-          { type: "entry", f: fetchData }
-        ]
+        actions: [{ type: "entry", f: fetchData }],
       });
       expect(loader.value).not.toBe(valueA);
       expect(loader.current).toEqual("loading");
@@ -115,7 +111,9 @@ describe("Machine with entry and exit actions", () => {
       expect(finishedLoading).toHaveBeenCalledTimes(0);
 
       await expect(loader.value.results).resolves.toEqual({ fetchData: 42 });
-      await expect(Promise.resolve(transitionResult.value.results)).resolves.toEqual({
+      await expect(
+        Promise.resolve(transitionResult.value.results)
+      ).resolves.toEqual({
         fetchData: 42,
       });
       expect(finishedLoading).toHaveBeenCalledTimes(1);
@@ -143,7 +141,7 @@ describe("Machine with entry and exit actions", () => {
       expect(loader.value).toMatchObject({
         change: 0,
         state: "idle",
-        actions: []
+        actions: [],
       });
 
       const transitionResult = loader.next("FETCH");
@@ -155,16 +153,14 @@ describe("Machine with entry and exit actions", () => {
       expect(loader.value).toMatchObject({
         change: 1,
         state: "loading",
-        actions: [
-          { type: "entry", f: fetchData },
-        ]
+        actions: [{ type: "entry", f: fetchData }],
       });
 
       // await expect(loader.value.results).rejects.toEqual(new Error("Failed!"));
       await expect(loader.value.results).rejects.toBeInstanceOf(Error);
-      await expect(Promise.resolve(transitionResult.value.results)).rejects.toEqual(
-        new Error("Failed!")
-      );
+      await expect(
+        Promise.resolve(transitionResult.value.results)
+      ).rejects.toEqual(new Error("Failed!"));
       expect(loader.changeCount).toEqual(2);
       expect(loader.current).toEqual("failure");
 
@@ -186,10 +182,10 @@ describe("Machine with entry and exit actions", () => {
   });
 });
 
-describe.skip("Fetch with abort signal", () => {
+describe("Fetch with abort signal", () => {
   const someURL = new URL("https://example.org/");
-  function fetchData() {
-    return fetch(someURL.toString());
+  function fetchData({ signal }: { signal: AbortSignal }) {
+    return fetch(someURL.toString(), { signal });
   }
 
   function Loader() {
@@ -242,7 +238,9 @@ describe.skip("Fetch with abort signal", () => {
       expect(loader.changeCount).toEqual(0);
 
       const transitionResult = loader.next("FETCH");
-      expect(fetch).toHaveBeenCalledWith("https://example.org/");
+      expect(fetch).toHaveBeenCalledWith("https://example.org/", {
+        signal: expect.any(AbortSignal),
+      });
       expect(transitionResult.value.actions).toEqual([
         { type: "entry", f: fetchData },
       ]);
@@ -250,8 +248,8 @@ describe.skip("Fetch with abort signal", () => {
       expect(loader.changeCount).toEqual(1);
       expect(finishedLoading).toHaveBeenCalledTimes(0);
 
-      await expect(loader.results).resolves.toEqual({ fetchData: 42 });
-      await expect(Promise.resolve(transitionResult)).resolves.toEqual({
+      await expect(loader.value.results).resolves.toEqual({ fetchData: 42 });
+      await expect(transitionResult.value.results).resolves.toEqual({
         fetchData: 42,
       });
       expect(finishedLoading).toHaveBeenCalledTimes(1);
@@ -271,7 +269,7 @@ describe.skip("Fetch with abort signal", () => {
 
   describe("when fetch fails", () => {
     beforeEach(() => {
-      fetch.mockRejectedValueOnce(new Error("Failed!")).mockResolvedValue(42);
+      fetch.mockRejectedValueOnce(Error("Failed!")).mockResolvedValue(42);
     });
 
     test("sending events", async () => {
@@ -280,16 +278,18 @@ describe.skip("Fetch with abort signal", () => {
 
       const transitionResult = loader.next("FETCH");
       expect(fetch).toHaveBeenCalledTimes(1);
-      expect(fetch).toHaveBeenLastCalledWith("https://example.org/");
+      expect(fetch).toHaveBeenLastCalledWith("https://example.org/", {
+        signal: expect.any(AbortSignal),
+      });
       expect(transitionResult.value.actions).toEqual([
         { type: "entry", f: fetchData },
       ]);
       expect(loader.current).toEqual("loading");
       expect(loader.changeCount).toEqual(1);
 
-      await expect(loader.results).rejects.toEqual(new Error("Failed!"));
-      await expect(Promise.resolve(transitionResult)).rejects.toEqual(
-        new Error("Failed!")
+      await expect(loader.results).rejects.toEqual(Error("Failed!"));
+      await expect(transitionResult.value.results).rejects.toEqual(
+        Error("Failed!")
       );
       expect(loader.changeCount).toEqual(2);
       expect(loader.current).toEqual("failure");
@@ -303,7 +303,9 @@ describe.skip("Fetch with abort signal", () => {
       expect(loader.changeCount).toEqual(3);
 
       expect(fetch).toHaveBeenCalledTimes(2);
-      expect(fetch).toHaveBeenLastCalledWith("https://example.org/");
+      expect(fetch).toHaveBeenLastCalledWith("https://example.org/", {
+        signal: expect.any(AbortSignal),
+      });
 
       await expect(loader.results).resolves.toEqual({ fetchData: 42 });
       expect(loader.changeCount).toEqual(4);
@@ -401,8 +403,8 @@ describe("Hierarchical Traffic Lights Machine", () => {
     function* wait() {
       yield on("PED_COUNTDOWN", stop);
     }
-    function* stop() { }
-    function* blinking() { }
+    function* stop() {}
+    function* blinking() {}
 
     return { walk, blinking };
   }
@@ -493,12 +495,16 @@ describe("Switch", () => {
     machine.next("flick");
     expect(machine.current).toEqual("On");
     expect(eventListener).toHaveBeenCalledTimes(1);
-    expect(eventListener).toHaveBeenLastCalledWith(expect.objectContaining({ type: "StateChanged", value: "On" }));
+    expect(eventListener).toHaveBeenLastCalledWith(
+      expect.objectContaining({ type: "StateChanged", value: "On" })
+    );
 
     machine.next("flick");
     expect(machine.current).toEqual("Off");
     expect(eventListener).toHaveBeenCalledTimes(2);
-    expect(eventListener).toHaveBeenLastCalledWith(expect.objectContaining({ type: "StateChanged", value: "Off" }));
+    expect(eventListener).toHaveBeenLastCalledWith(
+      expect.objectContaining({ type: "StateChanged", value: "Off" })
+    );
 
     machine.eventTarget.removeEventListener("StateChanged", eventListener);
 
@@ -512,8 +518,8 @@ describe("Switch", () => {
 
     const whenPromiseResolves = jest.fn();
     const aborter = new AbortController();
-    const onPromise = onceStateChangesTo(machine, "On", aborter.signal)
-    onPromise.then(whenPromiseResolves)
+    const onPromise = onceStateChangesTo(machine, "On", aborter.signal);
+    onPromise.then(whenPromiseResolves);
 
     await null;
     expect(whenPromiseResolves).toHaveBeenCalledTimes(0);
@@ -521,7 +527,7 @@ describe("Switch", () => {
     machine.next("flick");
     await null;
     expect(whenPromiseResolves).toHaveBeenCalledTimes(1);
-  })
+  });
 });
 
 describe("Switch with symbol messages", () => {
@@ -602,18 +608,18 @@ describe("Wrapping navigator online as a state machine", () => {
     yield on("online", compound(Online));
     yield on("offline", compound(Offline));
 
-    function* Online() { }
-    function* Offline() { }
+    function* Online() {}
+    function* Offline() {}
 
     return function* Pending() {
       yield cond(navigator.onLine, Online);
       yield always(Offline);
-    }
+    };
   }
 
   describe("when online", () => {
     useEach(() => {
-      const spy = jest.spyOn(navigator, 'onLine', 'get').mockReturnValue(true);
+      const spy = jest.spyOn(navigator, "onLine", "get").mockReturnValue(true);
       return () => spy.mockRestore();
     });
 
@@ -625,11 +631,11 @@ describe("Wrapping navigator online as a state machine", () => {
 
     it("reacts to offline & online events", () => {
       const machine = start(OfflineStatus);
-      window.dispatchEvent(new Event('offline'))
+      window.dispatchEvent(new Event("offline"));
       expect(machine.current).toEqual("Offline");
       expect(machine.changeCount).toEqual(1);
 
-      window.dispatchEvent(new Event('online'))
+      window.dispatchEvent(new Event("online"));
       expect(machine.current).toEqual("Online");
       expect(machine.changeCount).toEqual(2);
     });
@@ -637,7 +643,7 @@ describe("Wrapping navigator online as a state machine", () => {
 
   describe("when offline", () => {
     useEach(() => {
-      const spy = jest.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+      const spy = jest.spyOn(navigator, "onLine", "get").mockReturnValue(false);
       return () => spy.mockRestore();
     });
 
@@ -649,11 +655,11 @@ describe("Wrapping navigator online as a state machine", () => {
 
     it("reacts to online & offline events", () => {
       const machine = start(OfflineStatus);
-      window.dispatchEvent(new Event('online'))
+      window.dispatchEvent(new Event("online"));
       expect(machine.current).toEqual("Online");
       expect(machine.changeCount).toEqual(1);
 
-      window.dispatchEvent(new Event('offline'))
+      window.dispatchEvent(new Event("offline"));
       expect(machine.current).toEqual("Offline");
       expect(machine.changeCount).toEqual(2);
     });
@@ -686,7 +692,7 @@ describe("Wrapping AbortController as a state machine", () => {
         yield listenTo(controller.signal, ["abort"]);
       }
     }
-    function* Aborted() { }
+    function* Aborted() {}
 
     return Initial;
   }
@@ -764,7 +770,9 @@ describe("Wrapping AbortController as a state machine", () => {
       expect(machine.current).toEqual("Initial");
       expect(machine.changeCount).toEqual(0);
 
-      const { controller } = await machine.results as { controller: AbortController };
+      const { controller } = (await machine.results) as {
+        controller: AbortController;
+      };
       expect(controller).toBeInstanceOf(AbortController);
       expect(controller.signal.aborted).toBe(false);
 
@@ -783,13 +791,13 @@ describe("Button click", () => {
       yield on("click", Clicked);
       yield listenTo(button, ["click"]);
     }
-    function* Clicked() { }
+    function* Clicked() {}
 
     return Initial;
   }
 
   it("listens when button clicks", () => {
-    const button = document.createElement('button');
+    const button = document.createElement("button");
     const machine = start(ButtonClickListener.bind(null, button));
 
     expect(machine.current).toEqual("Initial");
@@ -832,15 +840,18 @@ describe("Hovering machine", () => {
         }
         el.addEventListener("pointerdown", handler, { signal });
         // Have to do this as it seems jsdom doesn’t support passing a signal.
-        signal.addEventListener('abort', () => {
-          el.removeEventListener('pointerdown', handler);
-        }, { once: true });
+        signal.addEventListener(
+          "abort",
+          () => {
+            el.removeEventListener("pointerdown", handler);
+          },
+          { once: true }
+        );
       });
       yield entry(enteredUp);
       yield exit(exitedUp);
       yield listenTo(el, ["pointerdown"]);
       yield on("pointerdown", Down);
-
     }
     function* Down() {
       yield entry(enteredDown);
@@ -860,9 +871,14 @@ describe("Hovering machine", () => {
           el.style.top = `${deltaY}px`;
         }
         el.addEventListener("pointermove", handler, { signal });
-        signal.addEventListener('abort', () => {
-          el.removeEventListener('pointermove', handler);
-        }, { once: true });
+        // TODO: remove this?
+        signal.addEventListener(
+          "abort",
+          () => {
+            el.removeEventListener("pointermove", handler);
+          },
+          { once: true }
+        );
       });
       yield listenTo(el, ["pointerup"]);
       yield on("pointerup", Dropped);
@@ -870,8 +886,8 @@ describe("Hovering machine", () => {
       // const downEvent = yield lastReceived("pointerdown");
       // const moveEvent = yield lastReceived("pointermove");
       // yield effect(() => {
-      //   const deltaX = moveEvent.clientX - downEvent.clientX;
-      //   const deltaY = moveEvent.clientY - downEvent.clientY;
+      //   const deltaX = moveEvent().clientX - downEvent().clientX;
+      //   const deltaY = moveEvent().clientY - downEvent().clientY;
       //   el.style.left = `${deltaX}px`;
       //   el.style.top = `${deltaY}px`;
       // })
@@ -889,7 +905,7 @@ describe("Hovering machine", () => {
   }
 
   it("works with clicking", () => {
-    const button = document.createElement('button');
+    const button = document.createElement("button");
     const machine = start(DraggableMachine.bind(null, button));
 
     expect(machine.value).toMatchObject({ state: "Up", change: 0 });
@@ -901,7 +917,7 @@ describe("Hovering machine", () => {
     expect(enteredClicked).toHaveBeenCalledTimes(0);
     expect(enteredDropped).toHaveBeenCalledTimes(0);
 
-    button.dispatchEvent(new MouseEvent('pointerdown'));
+    button.dispatchEvent(new MouseEvent("pointerdown"));
     expect(machine.value).toMatchObject({ state: "Down", change: 1 });
     expect(pointerDownListener).toHaveBeenCalledTimes(1);
     expect(enteredUp).toHaveBeenCalledTimes(1);
@@ -911,7 +927,7 @@ describe("Hovering machine", () => {
     expect(enteredClicked).toHaveBeenCalledTimes(0);
     expect(enteredDropped).toHaveBeenCalledTimes(0);
 
-    button.dispatchEvent(new MouseEvent('pointerup'));
+    button.dispatchEvent(new MouseEvent("pointerup"));
     expect(machine.value).toMatchObject({ state: "Clicked", change: 2 });
     expect(pointerDownListener).toHaveBeenCalledTimes(1);
     expect(enteredUp).toHaveBeenCalledTimes(2);
@@ -921,7 +937,7 @@ describe("Hovering machine", () => {
     expect(enteredClicked).toHaveBeenCalledTimes(1);
     expect(enteredDropped).toHaveBeenCalledTimes(0);
 
-    button.dispatchEvent(new MouseEvent('pointerdown'));
+    button.dispatchEvent(new MouseEvent("pointerdown"));
     expect(machine.value).toMatchObject({ state: "Down", change: 3 });
     expect(pointerDownListener).toHaveBeenCalledTimes(2);
     expect(enteredUp).toHaveBeenCalledTimes(2);
@@ -931,7 +947,7 @@ describe("Hovering machine", () => {
     expect(enteredClicked).toHaveBeenCalledTimes(1);
     expect(enteredDropped).toHaveBeenCalledTimes(0);
 
-    button.dispatchEvent(new MouseEvent('pointerup'));
+    button.dispatchEvent(new MouseEvent("pointerup"));
     expect(machine.value).toMatchObject({ state: "Clicked", change: 4 });
     expect(pointerDownListener).toHaveBeenCalledTimes(2);
     expect(enteredUp).toHaveBeenCalledTimes(3);
@@ -943,7 +959,7 @@ describe("Hovering machine", () => {
   });
 
   it("works with dragging", () => {
-    const button = document.createElement('button');
+    const button = document.createElement("button");
     const machine = start(DraggableMachine.bind(null, button));
 
     expect(machine.value).toMatchObject({ state: "Up", change: 0 });
@@ -954,7 +970,7 @@ describe("Hovering machine", () => {
     expect(enteredClicked).toHaveBeenCalledTimes(0);
     expect(enteredDropped).toHaveBeenCalledTimes(0);
 
-    button.dispatchEvent(new MouseEvent('pointerdown'));
+    button.dispatchEvent(new MouseEvent("pointerdown"));
     expect(machine.value).toMatchObject({ state: "Down", change: 1 });
     expect(enteredUp).toHaveBeenCalledTimes(1);
     expect(exitedUp).toHaveBeenCalledTimes(1);
@@ -963,7 +979,7 @@ describe("Hovering machine", () => {
     expect(enteredClicked).toHaveBeenCalledTimes(0);
     expect(enteredDropped).toHaveBeenCalledTimes(0);
 
-    button.dispatchEvent(new MouseEvent('pointermove'));
+    button.dispatchEvent(new MouseEvent("pointermove"));
     expect(machine.value).toMatchObject({ state: "Dragging", change: 2 });
     expect(enteredUp).toHaveBeenCalledTimes(1);
     expect(exitedUp).toHaveBeenCalledTimes(1);
@@ -972,7 +988,7 @@ describe("Hovering machine", () => {
     expect(enteredClicked).toHaveBeenCalledTimes(0);
     expect(enteredDropped).toHaveBeenCalledTimes(0);
 
-    button.dispatchEvent(new MouseEvent('pointermove'));
+    button.dispatchEvent(new MouseEvent("pointermove"));
     expect(machine.value).toMatchObject({ state: "Dragging", change: 2 });
     expect(enteredUp).toHaveBeenCalledTimes(1);
     expect(exitedUp).toHaveBeenCalledTimes(1);
@@ -981,7 +997,7 @@ describe("Hovering machine", () => {
     expect(enteredClicked).toHaveBeenCalledTimes(0);
     expect(enteredDropped).toHaveBeenCalledTimes(0);
 
-    button.dispatchEvent(new MouseEvent('pointerup'));
+    button.dispatchEvent(new MouseEvent("pointerup"));
     expect(machine.value).toMatchObject({ state: "Dropped", change: 3 });
     expect(enteredUp).toHaveBeenCalledTimes(2);
     expect(exitedUp).toHaveBeenCalledTimes(1);
@@ -990,7 +1006,7 @@ describe("Hovering machine", () => {
     expect(enteredClicked).toHaveBeenCalledTimes(0);
     expect(enteredDropped).toHaveBeenCalledTimes(1);
 
-    button.dispatchEvent(new MouseEvent('pointerdown'));
+    button.dispatchEvent(new MouseEvent("pointerdown"));
     expect(machine.value).toMatchObject({ state: "Down", change: 4 });
     expect(enteredUp).toHaveBeenCalledTimes(2);
     expect(exitedUp).toHaveBeenCalledTimes(2);
@@ -999,7 +1015,7 @@ describe("Hovering machine", () => {
     expect(enteredClicked).toHaveBeenCalledTimes(0);
     expect(enteredDropped).toHaveBeenCalledTimes(1);
 
-    button.dispatchEvent(new MouseEvent('pointerup'));
+    button.dispatchEvent(new MouseEvent("pointerup"));
     expect(machine.value).toMatchObject({ state: "Clicked", change: 5 });
     expect(enteredUp).toHaveBeenCalledTimes(3);
     expect(exitedUp).toHaveBeenCalledTimes(2);
@@ -1045,38 +1061,40 @@ describe("Key shortcut click highlighting too many event listeners bug", () => {
   it("listens when keys are pressed", () => {
     // FIXME: there’s lots of event listeners being created!
     const aborter = new AbortController();
-    const input = document.createElement('input');
-    const machine = start(KeyShortcutListener.bind(null, input), { signal: aborter.signal });
+    const input = document.createElement("input");
+    const machine = start(KeyShortcutListener.bind(null, input), {
+      signal: aborter.signal,
+    });
     expect(machine.value).toMatchObject({
       state: "Closed",
       change: 0,
     });
 
-    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
     expect(machine.value).toMatchObject({
       state: "Open",
       change: 1,
     });
 
-    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
     expect(machine.value).toMatchObject({
       state: "Open",
       change: 1,
     });
 
-    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'a' }));
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "a" }));
     expect(machine.value).toMatchObject({
       state: "Open",
       change: 1,
     });
 
-    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
     expect(machine.value).toMatchObject({
       state: "Closed",
       change: 2,
     });
 
-    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'a' }));
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "a" }));
     expect(machine.value).toMatchObject({
       state: "Closed",
       change: 2,
@@ -1114,29 +1132,31 @@ describe("Key shortcut cond reading event", () => {
 
   it("listens when keys are pressed", () => {
     const aborter = new AbortController();
-    const input = document.createElement('input');
-    const machine = start(KeyShortcutListener.bind(null, input), { signal: aborter.signal });
+    const input = document.createElement("input");
+    const machine = start(KeyShortcutListener.bind(null, input), {
+      signal: aborter.signal,
+    });
 
     expect(machine.current).toEqual("Closed");
     expect(machine.changeCount).toEqual(0);
 
-    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
     expect(machine.current).toEqual("Open");
     expect(machine.changeCount).toEqual(1);
 
-    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
     expect(machine.current).toEqual("Open");
     expect(machine.changeCount).toEqual(1);
 
-    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'a' }));
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "a" }));
     expect(machine.current).toEqual("Open");
     expect(machine.changeCount).toEqual(1);
 
-    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
     expect(machine.current).toEqual("Closed");
     expect(machine.changeCount).toEqual(2);
 
-    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'a' }));
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "a" }));
     expect(machine.current).toEqual("Closed");
     expect(machine.changeCount).toEqual(2);
 

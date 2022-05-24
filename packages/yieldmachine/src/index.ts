@@ -792,7 +792,7 @@ export function start(
       return _eventTarget;
     },
     get results() {
-      return instance.results;
+      return getValue().results;
     },
     get accumulations() {
       return new Map(instance.allAccumulations());
