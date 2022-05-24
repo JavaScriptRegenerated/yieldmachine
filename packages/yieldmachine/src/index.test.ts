@@ -578,6 +578,10 @@ describe("Switch as class", () => {
       // return this.Off as any;
     }
 
+    get initial() {
+      return this.Off;
+    }
+
     *Off() {
       yield on("FLICK", this.On);
     }
@@ -589,7 +593,7 @@ describe("Switch as class", () => {
 
   test("sending events", () => {
     const instance = new Switch();
-    const machine = start(() => instance.Off);
+    const machine = start(() => instance.initial);
     expect(machine).toBeDefined();
     expect(machine.current).toEqual("bound Off");
     expect(instance.onCount).toEqual(0);
