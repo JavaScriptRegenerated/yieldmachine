@@ -3,15 +3,14 @@ import { choice, on, start } from "./index";
 describe("toggle syncing from external state", () => {
   let openValue = false;
   function* ToggleExternalState() {
+    function* Closed() {}
+    function* Open() {}
+
     const checkingOpen = new Map([
       [() => openValue, Open],
       [null, Closed],
     ]);
-
     yield on("toggle", choice(checkingOpen));
-
-    function* Closed() {}
-    function* Open() {}
 
     return checkingOpen;
   }
