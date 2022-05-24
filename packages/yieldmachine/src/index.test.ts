@@ -1010,7 +1010,6 @@ describe("Hovering machine", () => {
   });
 });
 
-// TODO: port to Map?
 describe("Key shortcut click highlighting too many event listeners bug", () => {
   function KeyShortcutListener(el: HTMLElement) {
     function isEscapeKey(readContext: ReadContextCallback) {
