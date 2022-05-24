@@ -2,7 +2,7 @@ import { on, accumulate, start, map } from "./index";
 
 // See: https://components.guide/react+typescript/reducer-patterns
 
-describe("Toggle boolean map callback", () => {
+describe("Toggle Flag boolean map callback", () => {
   function* Switch() {
     yield on("toggle", map((current: boolean) => !current));
 
@@ -19,6 +19,28 @@ describe("Toggle boolean map callback", () => {
     expect(machine.value.state).toEqual(false);
     machine.next("unrecognised");
     expect(machine.value.state).toEqual(false);
+  });
+});
+
+describe("One-Way Flag", () => {
+  function* Switch() {
+    yield on("toggle", map((current: boolean) => true as boolean));
+
+    return false;
+  }
+
+  test("sending events", () => {
+    const machine = start(Switch);
+    expect(machine).toBeDefined();
+    expect(machine.value.state).toEqual(false);
+    machine.next("toggle");
+    expect(machine.value.state).toEqual(true);
+    machine.next("toggle");
+    expect(machine.value.state).toEqual(true);
+    machine.next("toggle");
+    expect(machine.value.state).toEqual(true);
+    machine.next("unrecognised");
+    expect(machine.value.state).toEqual(true);
   });
 });
 
@@ -73,82 +95,42 @@ describe("Compound number mapper", () => {
   });
 });
 
-// describe("Counter accumulate", () => {
-//   const n = Symbol("n");
-//   function* Counter() {
-//     yield accumulate("increment", n);
+describe("Menu/Exclusive Value string mapper", () => {
+  function* Menu() {
+    function onMenuItem(id: string) {
+      return on(id, map((current: string) => current === id ? "" : id as string))
+    }
+    yield onMenuItem("file");
+    yield onMenuItem("edit");
+    yield onMenuItem("view");
+    yield on("close", map(() => ""));
 
-//     return 0;
-//   }
+    return "";
+  }
 
-//   test("sending events", () => {
-//     const machine = start(Counter);
-//     expect(machine).toBeDefined();
-//     expect(machine.value.state[n]).toEqual(0);
-//     machine.next("increment");
-//     expect(machine.value.state[n]).toEqual(1);
-//     machine.next("increment");
-//     expect(machine.value.state[n]).toEqual(2);
-//   });
-// });
-
-// describe("Toggle raw value", () => {
-//   const flag = Symbol("flag");
-//   function* Counter() {
-//     const current: boolean = yield read;
-//     yield on("toggle", !current);
-
-//     return false;
-//   }
-
-//   test("sending events", () => {
-//     const machine = start(Counter);
-//     expect(machine).toBeDefined();
-//     expect(machine.value.state).toEqual(false);
-//     machine.next("toggle");
-//     expect(machine.value.state).toEqual(true);
-//     machine.next("toggle");
-//     expect(machine.value.state).toEqual(false);
-//   });
-// });
-
-// describe("Toggle pair", () => {
-//   const flag = Symbol("flag");
-//   function* Counter() {
-//     const currentValue: boolean = yield flag;
-//     yield on("toggle", pair(flag, !currentValue));
-
-//     return pair(flag, false);
-//   }
-
-//   test("sending events", () => {
-//     const machine = start(Counter);
-//     expect(machine).toBeDefined();
-//     expect(machine.value.state).toEqual(false);
-//     machine.next("toggle");
-//     expect(machine.value.state).toEqual(true);
-//     machine.next("toggle");
-//     expect(machine.value.state).toEqual(false);
-//   });
-// });
-
-// describe("Toggle Box", () => {
-//   const flag = Symbol("flag");
-//   const Flag = new Box("flag", false);
-//   function* Counter() {
-//     const currentValue: boolean = yield Flag;
-//     yield on("toggle", Flag(!currentValue));
-
-//     return Flag(false);
-//   }
-
-//   test("sending events", () => {
-//     const machine = start(Counter);
-//     expect(machine).toBeDefined();
-//     expect(machine.value.state).toEqual(false);
-//     machine.next("toggle");
-//     expect(machine.value.state).toEqual(true);
-//     machine.next("toggle");
-//     expect(machine.value.state).toEqual(false);
-//   });
-// });
+  test("sending events", () => {
+    const machine = start(Menu);
+    expect(machine).toBeDefined();
+    expect(machine.value.state).toEqual("");
+    machine.next("file");
+    expect(machine.value.state).toEqual("file");
+    machine.next("close");
+    expect(machine.value.state).toEqual("");
+    machine.next("file");
+    expect(machine.value.state).toEqual("file");
+    machine.next("file");
+    expect(machine.value.state).toEqual("");
+    machine.next("file");
+    expect(machine.value.state).toEqual("file");
+    machine.next("edit");
+    expect(machine.value.state).toEqual("edit");
+    machine.next("view");
+    expect(machine.value.state).toEqual("view");
+    machine.next("edit");
+    expect(machine.value.state).toEqual("edit");
+    machine.next("edit");
+    expect(machine.value.state).toEqual("");
+    machine.next("close");
+    expect(machine.value.state).toEqual("");
+  });
+});
