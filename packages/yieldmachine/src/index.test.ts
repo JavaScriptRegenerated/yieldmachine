@@ -16,6 +16,7 @@ import {
   onceStateChangesTo,
   readContext,
   ReadContextCallback,
+  StateDefinition,
 } from "./index";
 
 test("node version " + process.version, () => {});
@@ -563,40 +564,47 @@ describe("Switch with symbol messages", () => {
   });
 });
 
-describe.skip("Switch as class", () => {
+describe("Switch as class", () => {
   class Switch {
-    constructor() {
-      // Set up any internal state needed.
-      return this.Off as any;
-    }
+    onCount: number;
 
-    get initial() {
-      return this.Off;
+    constructor() {
+      this.Off = this.Off.bind(this);
+      this.On = this.On.bind(this);
+
+      // Set up any internal state needed.
+      this.onCount = 0;
+
+      // return this.Off as any;
     }
 
     *Off() {
       yield on("FLICK", this.On);
     }
     *On() {
+      this.onCount++;
       yield on("FLICK", this.Off);
     }
   }
 
   test("sending events", () => {
-    const machine = start(() => new Switch() as any);
+    const instance = new Switch();
+    const machine = start(() => instance.Off);
     expect(machine).toBeDefined();
-    expect(machine.current).toEqual("OFF");
+    expect(machine.current).toEqual("bound Off");
+    expect(instance.onCount).toEqual(0);
 
     machine.next("FLICK");
-    expect(machine.current).toEqual("ON");
+    expect(machine.current).toEqual("bound On");
     expect(machine.changeCount).toEqual(1);
+    expect(instance.onCount).toEqual(1);
 
     machine.next("FLICK");
-    expect(machine.current).toEqual("OFF");
+    expect(machine.current).toEqual("bound Off");
     expect(machine.changeCount).toEqual(2);
 
     machine.next(Symbol("will be ignored"));
-    expect(machine.current).toEqual("OFF");
+    expect(machine.current).toEqual("bound Off");
     expect(machine.changeCount).toEqual(2);
   });
 });
