@@ -304,7 +304,7 @@ class InternalInstance {
     if (this.child === null) {
       return this.definition.name;
     } else if (typeof this.child === 'string' || typeof this.child === 'number' || typeof this.child === 'boolean') {
-      return this.child;
+      return { [this.definition.name]: this.child };
     } else {
       // return [[this.definition.name], this.child.current];
       return { [this.definition.name]: this.child.current };

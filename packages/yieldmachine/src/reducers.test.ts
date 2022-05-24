@@ -40,6 +40,39 @@ describe("Counter number map callback", () => {
   });
 });
 
+describe("Compound number mapper", () => {
+  function SwitchableCounter() {
+    function *On() {
+      yield on("flick", Off);
+      yield on("increment", map((n: number) => n + 1));
+      return 0;
+    }
+    function *Off() {
+      yield on("flick", On);
+    }
+
+    return Off;
+  }
+
+  test("sending events", () => {
+    const machine = start(SwitchableCounter);
+    expect(machine).toBeDefined();
+    expect(machine.value.state).toEqual("Off");
+    machine.next("increment");
+    expect(machine.value.state).toEqual("Off");
+    machine.next("flick");
+    expect(machine.value.state).toEqual({ "On": 0 });
+    machine.next("increment");
+    expect(machine.value.state).toEqual({ "On": 1 });
+    machine.next("increment");
+    expect(machine.value.state).toEqual({ "On": 2 });
+    machine.next("flick");
+    expect(machine.value.state).toEqual("Off");
+    machine.next("flick");
+    expect(machine.value.state).toEqual({ "On": 0 });
+  });
+});
+
 // describe("Counter accumulate", () => {
 //   const n = Symbol("n");
 //   function* Counter() {
