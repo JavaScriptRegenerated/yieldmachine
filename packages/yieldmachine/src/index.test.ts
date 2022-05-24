@@ -457,14 +457,14 @@ describe("Hierarchical Traffic Lights Machine", () => {
 
 describe("Switch", () => {
   function Switch() {
-    function* OFF() {
-      yield on("FLICK", ON);
+    function* Off() {
+      yield on("flick", On);
     }
-    function* ON() {
-      yield on("FLICK", OFF);
+    function* On() {
+      yield on("flick", Off);
     }
 
-    return OFF;
+    return Off;
   }
 
   it("changes state and change count", () => {
@@ -472,11 +472,11 @@ describe("Switch", () => {
     expect(machine).toBeDefined();
     expect(machine.current).toEqual("OFF");
 
-    machine.next("FLICK");
+    machine.next("flick");
     expect(machine.current).toEqual("ON");
     expect(machine.changeCount).toEqual(1);
 
-    machine.next("FLICK");
+    machine.next("flick");
     expect(machine.current).toEqual("OFF");
     expect(machine.changeCount).toEqual(2);
   });
@@ -489,19 +489,19 @@ describe("Switch", () => {
     const eventListener = jest.fn();
     machine.eventTarget.addEventListener("StateChanged", eventListener);
 
-    machine.next("FLICK");
+    machine.next("flick");
     expect(machine.current).toEqual("ON");
     expect(eventListener).toHaveBeenCalledTimes(1);
     expect(eventListener).toHaveBeenLastCalledWith(expect.objectContaining({ type: "StateChanged", value: "ON" }));
 
-    machine.next("FLICK");
+    machine.next("flick");
     expect(machine.current).toEqual("OFF");
     expect(eventListener).toHaveBeenCalledTimes(2);
     expect(eventListener).toHaveBeenLastCalledWith(expect.objectContaining({ type: "StateChanged", value: "OFF" }));
 
     machine.eventTarget.removeEventListener("StateChanged", eventListener);
 
-    machine.next("FLICK");
+    machine.next("flick");
     expect(machine.current).toEqual("ON");
     expect(eventListener).toHaveBeenCalledTimes(2);
   });
@@ -517,7 +517,7 @@ describe("Switch", () => {
     await null;
     expect(whenPromiseResolves).toHaveBeenCalledTimes(0);
 
-    machine.next("FLICK");
+    machine.next("flick");
     await null;
     expect(whenPromiseResolves).toHaveBeenCalledTimes(1);
   })

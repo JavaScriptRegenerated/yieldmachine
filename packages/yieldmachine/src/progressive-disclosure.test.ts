@@ -23,16 +23,16 @@ import {
 describe("Element focus", () => {
   function* DetailsListener(el: HTMLDetailsElement) {
     yield listenTo(el, ["toggle"]);
-    yield on("toggle", compound(CheckingOpen));
+    yield on("toggle", compound(checkingOpen));
 
     function* Closed() { }
     function* Open() { }
-    function* CheckingOpen() {
+    function* checkingOpen() {
       yield cond(el.open, Open);
       yield always(Closed);
     }
 
-    return CheckingOpen;
+    return checkingOpen;
   }
 
   it("listens when opens and closed", async () => {
