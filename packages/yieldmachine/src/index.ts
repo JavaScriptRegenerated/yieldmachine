@@ -293,7 +293,6 @@ class InternalInstance {
   ) {
     this.definition = machineDefinition;
     this.parent = parent;
-    console.log('GO!', typeof machineDefinition)
     this.consume(machineDefinition);
 
     signal.addEventListener('abort', () => {
@@ -378,17 +377,13 @@ class InternalInstance {
 
     const initialReturn = stateGenerator();
     // Generator function
-    if (typeof initialReturn === 'boolean' || typeof initialReturn === 'number' || typeof initialReturn === 'string') {
-      this.child = initialReturn
-      return
-    }
-    else if ((initialReturn as any)[Symbol.iterator]) {
+    if ((initialReturn as any)[Symbol.iterator]) {
       const iterator: Iterator<any, unknown, unknown> = (initialReturn as any)[Symbol.iterator]();
       let reply: unknown = undefined;
       while (true) {
         const item = iterator.next(reply)
         if (item.done) {
-          var initialGenerator = item.value as unknown;
+          var initialStateDefinition = item.value as unknown;
           break;
         }
 
@@ -417,12 +412,16 @@ class InternalInstance {
     }
     // Normal function
     else if (typeof initialReturn === 'function') {
-      var initialGenerator = initialReturn as unknown;
+      var initialStateDefinition = initialReturn as unknown;
     } else {
       throw Error(`State Machine definition returned invalid initial value ${initialReturn}`);
     }
 
-    this.transitionTo(initialGenerator as StateDefinition | undefined);
+    if (typeof initialStateDefinition === 'boolean' || typeof initialStateDefinition === 'number' || typeof initialStateDefinition === 'string') {
+      this.child = initialStateDefinition
+    } else {
+      this.transitionTo(initialStateDefinition as StateDefinition | undefined);
+    }
   }
 
   willEnter() {
@@ -434,6 +433,14 @@ class InternalInstance {
     this.globalHandlers.runAlways(target => this.processTarget(target));
   }
 
+  willMutate() {
+    this.callbacks.willChangeState();
+  }
+
+  didMutate() {
+    this.callbacks.didChangeState(this.current!);
+  }
+
   willExit() {
     this.aborter.abort();
     this.globalHandlers.runExit();
@@ -441,7 +448,6 @@ class InternalInstance {
   }
 
   transitionTo(stateDefinition?: StateDefinition) {
-    console.log("transitionTo", stateDefinition)
     if (stateDefinition === undefined) {
       return;
     }
@@ -480,7 +486,9 @@ class InternalInstance {
           throw Error("Can only map on primitive state of type: boolean, number, or string.")
         }
 
+        this.willMutate();
         this.child = (target as Mapper<typeof this.child>).transform(this.child);
+        this.didMutate();
       }
     } else if (this.parent !== null) {
       this.parent.transitionTo(target);
@@ -547,9 +555,10 @@ export function start(
     {
       get changeCount() { return _changeCount },
       willChangeState() {
-        _changeCount += 1;
+        // _changeCount += 1;
       },
       didChangeState(state) {
+        _changeCount += 1;
         _eventTarget.dispatchEvent(new MachineStateChangedEvent('StateChanged', state));
       },
       didChangeAccumulations() {
@@ -597,7 +606,7 @@ export function start(
     let resultCache: undefined | Promise<unknown> = undefined;
     _cachedValue = Object.freeze({
       change: _changeCount,
-      state: instance.current !== null && typeof instance.current === 'object' ? (instance.current[rootName] as any) : null,
+      state: instance.current !== null && typeof instance.current === 'object' ? (instance.current[rootName] as any) : instance.current,
       actions: instance.actions,
       get results() {
         if (resultCache === undefined) {

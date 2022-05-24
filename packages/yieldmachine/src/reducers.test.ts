@@ -2,31 +2,15 @@ import { on, accumulate, start, map } from "./index";
 
 // See: https://components.guide/react+typescript/reducer-patterns
 
-const pairKey = Symbol('pairKey')
-
-function pair<T>(key: symbol, value: T): { [pairKey]: { key: symbol, value: T} } {
-  return Object.freeze({ [pairKey]: { key, value } });
-}
-
-class Box<T> {
-  readonly key: string;
-  readonly defaultValue: T;
-
-  constructor(key: string, defaultValue: T) {
-    this.key = key;
-    this.defaultValue = defaultValue;
-  }
-}
-
-describe("Toggle map callback", () => {
-  function* Counter() {
+describe("Toggle boolean map callback", () => {
+  function* Switch() {
     yield on("toggle", map((current: boolean) => !current));
 
     return false;
   }
 
-  test.only("sending events", () => {
-    const machine = start(Counter);
+  test("sending events", () => {
+    const machine = start(Switch);
     expect(machine).toBeDefined();
     expect(machine.value.state).toEqual(false);
     machine.next("toggle");
@@ -38,8 +22,7 @@ describe("Toggle map callback", () => {
   });
 });
 
-describe("Counter map callback", () => {
-  const n = Symbol("n");
+describe("Counter number map callback", () => {
   function* Counter() {
     yield on("increment", map((n: number) => n + 1));
 

@@ -13,3 +13,6 @@ $(foreach package,$(packages),$(package)):
 
 test_all: $(packages)
 	echo "done"
+
+watch_core:
+	cd packages/yieldmachine && npm t
