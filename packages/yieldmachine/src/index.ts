@@ -25,9 +25,16 @@ export interface ExitAction {
 
 export type PrimitiveState = boolean | number | string | symbol;
 export type StateDefinition = () => Generator<Yielded, any, unknown>;
+export type ChoiceDefinition = Map<
+  (() => boolean) | boolean,
+  StateDefinition
+>;
+
 export interface Cond {
   type: "cond";
-  cond: ((readContext: (contextName: string | symbol) => unknown) => boolean) | boolean;
+  cond:
+    | ((readContext: (contextName: string | symbol) => unknown) => boolean)
+    | boolean;
   target: StateDefinition;
 }
 export interface Compound {
@@ -38,7 +45,15 @@ export interface Mapper<State> {
   type: "mapper";
   transform: (current: State) => State;
 }
-export type Target = StateDefinition | Cond | Compound | Mapper<boolean> | Mapper<number> | Mapper<string> | Mapper<symbol>;
+export type Target =
+  | StateDefinition
+  | Cond
+  | Compound
+  | Mapper<boolean>
+  | Mapper<number>
+  | Mapper<string>
+  | Mapper<symbol>
+  | ChoiceDefinition;
 export interface On {
   type: "on";
   on: string | symbol;
@@ -48,7 +63,7 @@ export interface On {
 export interface ListenTo {
   type: "listenTo";
   eventNames: Array<string>;
-  sender: EventTarget
+  sender: EventTarget;
 }
 export interface Always {
   type: "always";
@@ -74,16 +89,34 @@ export interface ReadContext {
   contextName: string | symbol;
 }
 
-export type Yielded = On | Always | Cond | EntryAction | ExitAction | ListenTo | ReadContext | Accumulate | Call<any>;
+export type Yielded =
+  | On
+  | Always
+  | Cond
+  | EntryAction
+  | ExitAction
+  | ListenTo
+  | ReadContext
+  | Accumulate
+  | Call<any>;
 
-export function on<Event extends string | symbol | ErrorConstructor>(event: Event, target: Target): On {
-  return { type: "on", on: typeof event === 'function' && 'name' in event ? event.name : event, target };
+export function on<Event extends string | symbol | ErrorConstructor>(
+  event: Event,
+  target: Target
+): On {
+  return {
+    type: "on",
+    on: typeof event === "function" && "name" in event ? event.name : event,
+    target,
+  };
 }
 
-export function map<T extends PrimitiveState>(transform: (current: T) => T): Mapper<T> {
+export function map<T extends PrimitiveState>(
+  transform: (current: T) => T
+): Mapper<T> {
   return {
     type: "mapper",
-    transform
+    transform,
   };
 }
 
@@ -95,7 +128,7 @@ export function call<Arguments extends Array<any>>(
 }
 
 export function entry(f: EntryActionBody | Send<string, any[]>): EntryAction {
-  if (typeof f === 'function') {
+  if (typeof f === "function") {
     return { type: "entry", f };
   } else {
     return { type: "entry", f: f.target, message: [f.method, f.args] };
@@ -106,11 +139,18 @@ export function exit(f: ExitActionBody): ExitAction {
   return { type: "exit", f };
 }
 
-export function listenTo(sender: EventTarget, eventNames: Array<string>): ListenTo {
+export function listenTo(
+  sender: EventTarget,
+  eventNames: Array<string>
+): ListenTo {
   return { type: "listenTo", sender, eventNames: Array.from(eventNames) };
 }
 
-export function send<Method extends string | symbol, Arguments extends any[]>(target: () => Record<Method, (...args: Arguments) => void>, method: Method, args: Arguments): Send<Method, Arguments> {
+export function send<Method extends string | symbol, Arguments extends any[]>(
+  target: () => Record<Method, (...args: Arguments) => void>,
+  method: Method,
+  args: Arguments
+): Send<Method, Arguments> {
   return { type: "send", target, method, args };
 }
 
@@ -132,7 +172,10 @@ export function compound(...targets: Array<StateDefinition>): Compound {
   return { type: "compound", targets };
 }
 
-export function accumulate(eventName: string | symbol, resultKey: symbol): Accumulate {
+export function accumulate(
+  eventName: string | symbol,
+  resultKey: symbol
+): Accumulate {
   return { type: "accumulate", eventName, resultKey };
 }
 
@@ -147,7 +190,8 @@ interface MachineValue {
   readonly results: null | Promise<unknown>;
 }
 
-export interface MachineInstance extends Iterator<MachineValue, void, string | symbol> {
+export interface MachineInstance
+  extends Iterator<MachineValue, void, string | symbol> {
   readonly value: MachineValue;
   readonly changeCount: number;
   // TODO: remove `current`
@@ -194,7 +238,10 @@ class Handlers {
     this.eventsToAccumulate.splice(0, Infinity);
   }
 
-  add(value: Yielded, readContext: (contextName: string | symbol) => unknown): unknown | void {
+  add(
+    value: Yielded,
+    readContext: (contextName: string | symbol) => unknown
+  ): unknown | void {
     if (value.type === "entry") {
       this.entryActions.push(value);
 
@@ -208,18 +255,20 @@ class Handlers {
           const instance = this.actionResults.get(value.f.name);
           const [method, args] = value.message;
           if (instance != null && method in (instance as {})) {
-            (instance as Record<string | symbol, Function>)[method].apply(instance, args);
+            (instance as Record<string | symbol, Function>)[method].apply(
+              instance,
+              args
+            );
           }
           resolve(skip);
         }
       }).then((result) => {
         if (result !== skip) {
-          return ({ [value.f.name]: result })
+          return { [value.f.name]: result };
         }
         return undefined;
       });
       this.promises.push(resultPromise);
-
     } else if (value.type === "exit") {
       this.exitActions.push(value);
     } else if (value.type === "on") {
@@ -228,13 +277,13 @@ class Handlers {
       this.alwaysArray.push(value.target);
     } else if (value.type === "cond") {
       this.alwaysArray.push(value);
-    } else if (value.type === 'listenTo') {
+    } else if (value.type === "listenTo") {
       for (const eventName of value.eventNames) {
         this.eventsToListenTo.push([eventName, value.sender]);
       }
-    } else if (value.type === 'accumulate') {
+    } else if (value.type === "accumulate") {
       this.eventsToAccumulate.push([value.eventName, value.resultKey]);
-    } else if (value.type === 'readContext') {
+    } else if (value.type === "readContext") {
       return readContext(value.contextName);
     }
     return undefined;
@@ -244,9 +293,9 @@ class Handlers {
     if (this.promises.length === 0) return null;
 
     const promise = Promise.resolve(this.promise)
-      .catch(() => { })
+      .catch(() => {})
       .then(() => Promise.all(this.promises))
-      .then(resultObjects => Object.assign({}, ...resultObjects));
+      .then((resultObjects) => Object.assign({}, ...resultObjects));
 
     this.promise = promise;
 
@@ -269,21 +318,35 @@ class Handlers {
 }
 
 function isPrimitiveState(value: unknown): value is PrimitiveState {
-  return typeof value === 'boolean' || typeof value === 'number' || typeof value === 'string' || typeof value === 'symbol';
+  return (
+    typeof value === "boolean" ||
+    typeof value === "number" ||
+    typeof value === "string" ||
+    typeof value === "symbol"
+  );
 }
 
 class InternalInstance {
-  private definition: (() => StateDefinition) | (() => Generator<Yielded, StateDefinition, never>) | (() => Generator<Yielded, PrimitiveState, never>)
-  private parent: null | InternalInstance
-  private globalHandlers = new Handlers()
-  private resolved = null as Promise<Record<string, any>> | null
-  private accumulations: Map<symbol | string, Array<symbol | string | Event>> = new Map();
+  private definition:
+    | (() => StateDefinition)
+    | (() => Generator<Yielded, StateDefinition, never>)
+    | (() => Generator<Yielded, PrimitiveState, never>)
+    | (() => Generator<Yielded, ChoiceDefinition, never>);
+  private parent: null | InternalInstance;
+  private globalHandlers = new Handlers();
+  private resolved = null as Promise<Record<string, any>> | null;
+  private accumulations: Map<symbol | string, Array<symbol | string | Event>> =
+    new Map();
   private aborter = new AbortController();
-  child: null | PrimitiveState | InternalInstance = null
+  child: null | PrimitiveState | InternalInstance = null;
 
   constructor(
     parent: null | InternalInstance,
-    machineDefinition: (() => StateDefinition) | (() => Generator<Yielded, StateDefinition, never>) | (() => Generator<Yielded, PrimitiveState, never>),
+    machineDefinition:
+      | (() => StateDefinition)
+      | (() => Generator<Yielded, StateDefinition, never>)
+      | (() => Generator<Yielded, PrimitiveState, never>)
+      | (() => Generator<Yielded, ChoiceDefinition, never>),
     private signal: AbortSignal,
     private callbacks: {
       readonly changeCount: number;
@@ -300,9 +363,13 @@ class InternalInstance {
     this.parent = parent;
     this.consume(machineDefinition);
 
-    signal.addEventListener('abort', () => {
-      this.willExit();
-    }, { once: true });
+    signal.addEventListener(
+      "abort",
+      () => {
+        this.willExit();
+      },
+      { once: true }
+    );
   }
 
   get current(): null | PrimitiveState | Record<string, unknown> {
@@ -327,7 +394,11 @@ class InternalInstance {
     return Array.from(this.generateActions());
   }
 
-  private async *valuePromises(): AsyncGenerator<Record<string, any>, void, undefined> {
+  private async *valuePromises(): AsyncGenerator<
+    Record<string, any>,
+    void,
+    undefined
+  > {
     if (this.resolved !== null) {
       yield await this.resolved;
     }
@@ -343,13 +414,15 @@ class InternalInstance {
         objects.push(object);
       }
       return objects;
-    }
+    };
 
-    return build().then(objects => Object.assign({}, ...objects));
+    return build().then((objects) => Object.assign({}, ...objects));
     // return build().then(pairs => Object.fromEntries(pairs as any));
   }
 
-  *allAccumulations(): Generator<[symbol | string, Array<string | symbol | Event>]> /*: Generator<{ key: symbol | string, events: Array<string | symbol | Event> }>*/ {
+  *allAccumulations(): Generator<
+    [symbol | string, Array<string | symbol | Event>]
+  > /*: Generator<{ key: symbol | string, events: Array<string | symbol | Event> }>*/ {
     for (const [key, events] of this.accumulations) {
       // yield { key, events };
       yield [key, events];
@@ -370,23 +443,33 @@ class InternalInstance {
     this.globalHandlers.reset();
   }
 
-  consume(stateGenerator: (() => StateDefinition) | (() => Generator<Yielded, StateDefinition, never>) | (() => Generator<Yielded, PrimitiveState, never>)) {
+  consume(
+    stateGenerator:
+      | (() => StateDefinition)
+      | (() => Generator<Yielded, StateDefinition, never>)
+      | (() => Generator<Yielded, PrimitiveState, never>)
+      | (() => Generator<Yielded, ChoiceDefinition, never>)
+  ) {
     // this.cleanup();
 
     this.willEnter();
 
-    if (typeof stateGenerator !== 'function') {
+    if (typeof stateGenerator !== "function") {
       // return
-      throw Error(`Expected state generator to be a function, got: ${typeof stateGenerator}`)
+      throw Error(
+        `Expected state generator to be a function, got: ${typeof stateGenerator}`
+      );
     }
 
     const initialReturn = stateGenerator();
     // Generator function
     if ((initialReturn as any)[Symbol.iterator]) {
-      const iterator: Iterator<any, unknown, unknown> = (initialReturn as any)[Symbol.iterator]();
+      const iterator: Iterator<any, unknown, unknown> = (initialReturn as any)[
+        Symbol.iterator
+      ]();
       let reply: unknown = undefined;
       while (true) {
-        const item = iterator.next(reply)
+        const item = iterator.next(reply);
         if (item.done) {
           var initialStateDefinition = item.value as unknown;
           break;
@@ -411,19 +494,31 @@ class InternalInstance {
       }
 
       for (const [event, target] of this.globalHandlers.eventsToListenTo) {
-        target.addEventListener(event, this, { signal: this.globalHandlers.signal } as AddEventListenerOptions);
+        target.addEventListener(event, this, {
+          signal: this.globalHandlers.signal,
+        } as AddEventListenerOptions);
       }
-
     }
     // Normal function
-    else if (typeof initialReturn === 'function') {
+    else if (typeof initialReturn === "function") {
       var initialStateDefinition = initialReturn as unknown;
     } else {
-      throw Error(`State Machine definition returned invalid initial value ${initialReturn}`);
+      throw Error(
+        `State Machine definition returned invalid initial value ${initialReturn}`
+      );
     }
 
     if (isPrimitiveState(initialStateDefinition)) {
-      this.child = initialStateDefinition
+      this.child = initialStateDefinition;
+    } else if (initialStateDefinition instanceof Map) {
+      for (const [cond, checkTarget] of initialStateDefinition) {
+        // const result = typeof cond === "boolean" ? cond : cond(this.callbacks.readContext);
+        const result = typeof cond === "boolean" ? cond : cond();
+        if (result === true) {
+          this.transitionTo(checkTarget);
+          return true;
+        }
+      }
     } else {
       this.transitionTo(initialStateDefinition as StateDefinition | undefined);
     }
@@ -435,7 +530,7 @@ class InternalInstance {
 
   didEnter() {
     this.callbacks.didChangeState(this.current!);
-    this.globalHandlers.runAlways(target => this.processTarget(target));
+    this.globalHandlers.runAlways((target) => this.processTarget(target));
   }
 
   willMutate() {
@@ -456,22 +551,33 @@ class InternalInstance {
     if (stateDefinition === undefined) {
       return;
     }
-    if (this.child instanceof InternalInstance && this.child.definition === stateDefinition) {
+    if (
+      this.child instanceof InternalInstance &&
+      this.child.definition === stateDefinition
+    ) {
       return;
     }
 
     this.aborter.abort();
 
     this.aborter = new AbortController();
-    const childInstance = new InternalInstance(this, stateDefinition, this.aborter.signal, this.callbacks);
+    const childInstance = new InternalInstance(
+      this,
+      stateDefinition,
+      this.aborter.signal,
+      this.callbacks
+    );
     this.child = childInstance;
     childInstance.didEnter();
   }
 
   processTarget(target: Target): boolean {
-    if ('type' in target) {
+    if ("type" in target) {
       if (target.type === "cond") {
-        const result = typeof target.cond === 'boolean' ? target.cond : target.cond(this.callbacks.readContext);
+        const result =
+          typeof target.cond === "boolean"
+            ? target.cond
+            : target.cond(this.callbacks.readContext);
         if (result === true && this.parent !== null) {
           this.parent.transitionTo(target.target);
           return true;
@@ -488,16 +594,31 @@ class InternalInstance {
         }
       } else if (target.type === "mapper") {
         if (this.child === null || this.child instanceof InternalInstance) {
-          throw Error("Can only map on primitive state of type: boolean, number, or string.")
+          throw Error(
+            "Can only map on primitive state of type: boolean, number, or string."
+          );
         }
 
         this.willMutate();
-        this.child = (target as Mapper<typeof this.child>).transform(this.child);
+        this.child = (target as Mapper<typeof this.child>).transform(
+          this.child
+        );
         this.didMutate();
       }
+    } else if (target instanceof Map) {
+      for (const [cond, checkTarget] of target) {
+        // const result = typeof cond === "boolean" ? cond : cond(this.callbacks.readContext);
+        const result = typeof cond === "boolean" ? cond : cond();
+        if (result === true) {
+          this.transitionTo(checkTarget);
+          return true;
+        }
+      }
     } else if (this.parent !== null) {
-      this.parent.transitionTo(target);
-      return true;
+      if (typeof target === "function") {
+        this.parent.transitionTo(target);
+        return true;
+      }
     }
 
     return false;
@@ -508,14 +629,18 @@ class InternalInstance {
       this.child.receive(event);
     }
 
-    const eventName = typeof event === 'string' || typeof event === 'symbol' ? event : event.type;
+    const eventName =
+      typeof event === "string" || typeof event === "symbol"
+        ? event
+        : event.type;
 
     const target = this.globalHandlers.targetForEvent(eventName);
     if (target !== undefined) {
       this.processTarget(target);
     }
 
-    for (const [iteratedEventName, resultKey] of this.globalHandlers.eventsToAccumulate) {
+    for (const [iteratedEventName, resultKey] of this.globalHandlers
+      .eventsToAccumulate) {
       if (iteratedEventName === eventName) {
         // TODO: have different strategies rather than just storing every single event.
         const current = this.accumulations.get(resultKey) ?? [];
@@ -532,19 +657,23 @@ const FallbackEvent = class Event {
     this.type = type;
   }
 } as typeof Event;
-const BaseEvent = typeof Event !== 'undefined' ? Event : FallbackEvent
+const BaseEvent = typeof Event !== "undefined" ? Event : FallbackEvent;
 
 class MachineStateChangedEvent extends BaseEvent {
   readonly value: PrimitiveState | Record<string, unknown>;
 
   constructor(type: string, value: PrimitiveState | Record<string, unknown>) {
-    super(type)
+    super(type);
     this.value = value;
   }
 }
 
 export function start(
-  machine: (() => StateDefinition) | (() => Generator<Yielded, StateDefinition, never>) | (() => Generator<Yielded, PrimitiveState, never>),
+  machine:
+    | (() => StateDefinition)
+    | (() => Generator<Yielded, StateDefinition, never>)
+    | (() => Generator<Yielded, PrimitiveState, never>)
+    | (() => Generator<Yielded, ChoiceDefinition, never>),
   options: { signal?: AbortSignal } = {}
 ): MachineInstance {
   let _changeCount = -1;
@@ -558,19 +687,26 @@ export function start(
     machine,
     _aborter.signal,
     {
-      get changeCount() { return _changeCount },
+      get changeCount() {
+        return _changeCount;
+      },
       willChangeState() {
         // _changeCount += 1;
       },
       didChangeState(state) {
         _changeCount += 1;
-        _eventTarget.dispatchEvent(new MachineStateChangedEvent('StateChanged', state));
+        _eventTarget.dispatchEvent(
+          new MachineStateChangedEvent("StateChanged", state)
+        );
       },
       didChangeAccumulations() {
-        _eventTarget.dispatchEvent(new BaseEvent('AccumulationsChanged'));
+        _eventTarget.dispatchEvent(new BaseEvent("AccumulationsChanged"));
       },
       sendEvent(event, snapshotCount) {
-        if (typeof snapshotCount === "number" && snapshotCount !== _changeCount) {
+        if (
+          typeof snapshotCount === "number" &&
+          snapshotCount !== _changeCount
+        ) {
           // TODO: add a test that verifies this behaviour.
           return;
         }
@@ -587,14 +723,18 @@ export function start(
           return _activeEvent;
         }
         return undefined;
-      }
+      },
     }
   );
 
   if (options.signal && !options.signal.aborted) {
-    options.signal.addEventListener('abort', () => {
-      instance.cleanup();
-    }, { once: true });
+    options.signal.addEventListener(
+      "abort",
+      () => {
+        instance.cleanup();
+      },
+      { once: true }
+    );
   }
 
   // function getCurrent() {
@@ -611,14 +751,17 @@ export function start(
     let resultCache: undefined | Promise<unknown> = undefined;
     _cachedValue = Object.freeze({
       change: _changeCount,
-      state: instance.current !== null && typeof instance.current === 'object' ? (instance.current[rootName] as any) : instance.current,
+      state:
+        instance.current !== null && typeof instance.current === "object"
+          ? (instance.current[rootName] as any)
+          : instance.current,
       actions: instance.actions,
       get results() {
         if (resultCache === undefined) {
           resultCache = instance.results;
         }
         return resultCache;
-      }
+      },
     });
     return _cachedValue;
   }
@@ -657,12 +800,23 @@ export function start(
   };
 }
 
-export function onceStateChangesTo(machineInstance: MachineInstance, state: PrimitiveState, signal: AbortSignal): Promise<void> {
+export function onceStateChangesTo(
+  machineInstance: MachineInstance,
+  state: PrimitiveState,
+  signal: AbortSignal
+): Promise<void> {
   return new Promise((resolve) => {
-    machineInstance.eventTarget.addEventListener("StateChanged", (event) => {
-      if (event instanceof MachineStateChangedEvent && event.value === state) {
-        resolve();
-      }
-    }, { signal, once: true });
-  })
+    machineInstance.eventTarget.addEventListener(
+      "StateChanged",
+      (event) => {
+        if (
+          event instanceof MachineStateChangedEvent &&
+          event.value === state
+        ) {
+          resolve();
+        }
+      },
+      { signal, once: true }
+    );
+  });
 }

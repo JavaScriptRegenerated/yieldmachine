@@ -1,27 +1,37 @@
-import { listenTo, on } from "./index";
-
-// function* DetailsListenerNamedStates(el: HTMLDetailsElement) {
-//   const checkingOpen: ReadonlyMap<boolean | (() => boolean), any> = new Map([
-//       [() => el.open, Open],
-//       [true, Closed]
-//   ])
-
-//   yield listenTo(el, ["toggle"]);
-//   yield on("toggle", checkingOpen);
-
-//   function* Closed() { }
-//   function* Open() { }
-
-//   return checkingOpen;
-// }
-
-// function* DetailsListenerBoolean(el: HTMLDetailsElement) {
-//   yield listenTo(el, ["toggle"]);
-//   yield on("toggle", () => el.open);
-
-//   return el.open;
-// }
+import { on, start } from "./index";
 
 describe("it works with a Map", () => {
-  it.todo("works")
-})
+  let openValue = false;
+  function* ToggleExternalState() {
+    const checkingOpen = new Map([
+      [() => openValue, Open],
+      [true as any, Closed],
+    ]);
+
+    yield on("toggle", checkingOpen);
+
+    function* Closed() {}
+    function* Open() {}
+
+    return checkingOpen;
+  }
+
+  test("sending events", () => {
+    openValue = false;
+    const machine = start(ToggleExternalState);
+    expect(machine).toBeDefined();
+    expect(machine.value.state).toEqual("Closed");
+    machine.next("toggle");
+    expect(machine.value.state).toEqual("Closed");
+    openValue = true;
+    expect(machine.value.state).toEqual("Closed");
+    machine.next("toggle");
+    expect(machine.value.state).toEqual("Open");
+    machine.next("toggle");
+    expect(machine.value.state).toEqual("Open");
+    openValue = false;
+    expect(machine.value.state).toEqual("Open");
+    machine.next("toggle");
+    expect(machine.value.state).toEqual("Closed");
+  })
+});
