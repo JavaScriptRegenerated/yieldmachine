@@ -15,6 +15,7 @@ import {
   accumulate,
   onceStateChangesTo,
   readContext,
+  ReadContextCallback,
 } from "./index";
 
 test("node version " + process.version, () => { });
@@ -470,14 +471,14 @@ describe("Switch", () => {
   it("changes state and change count", () => {
     const machine = start(Switch);
     expect(machine).toBeDefined();
-    expect(machine.current).toEqual("OFF");
+    expect(machine.current).toEqual("Off");
 
     machine.next("flick");
-    expect(machine.current).toEqual("ON");
+    expect(machine.current).toEqual("On");
     expect(machine.changeCount).toEqual(1);
 
     machine.next("flick");
-    expect(machine.current).toEqual("OFF");
+    expect(machine.current).toEqual("Off");
     expect(machine.changeCount).toEqual(2);
   });
 
@@ -490,19 +491,19 @@ describe("Switch", () => {
     machine.eventTarget.addEventListener("StateChanged", eventListener);
 
     machine.next("flick");
-    expect(machine.current).toEqual("ON");
+    expect(machine.current).toEqual("On");
     expect(eventListener).toHaveBeenCalledTimes(1);
-    expect(eventListener).toHaveBeenLastCalledWith(expect.objectContaining({ type: "StateChanged", value: "ON" }));
+    expect(eventListener).toHaveBeenLastCalledWith(expect.objectContaining({ type: "StateChanged", value: "On" }));
 
     machine.next("flick");
-    expect(machine.current).toEqual("OFF");
+    expect(machine.current).toEqual("Off");
     expect(eventListener).toHaveBeenCalledTimes(2);
-    expect(eventListener).toHaveBeenLastCalledWith(expect.objectContaining({ type: "StateChanged", value: "OFF" }));
+    expect(eventListener).toHaveBeenLastCalledWith(expect.objectContaining({ type: "StateChanged", value: "Off" }));
 
     machine.eventTarget.removeEventListener("StateChanged", eventListener);
 
     machine.next("flick");
-    expect(machine.current).toEqual("ON");
+    expect(machine.current).toEqual("On");
     expect(eventListener).toHaveBeenCalledTimes(2);
   });
 
@@ -511,7 +512,7 @@ describe("Switch", () => {
 
     const whenPromiseResolves = jest.fn();
     const aborter = new AbortController();
-    const onPromise = onceStateChangesTo(machine, "ON", aborter.signal)
+    const onPromise = onceStateChangesTo(machine, "On", aborter.signal)
     onPromise.then(whenPromiseResolves)
 
     await null;
@@ -594,6 +595,7 @@ describe.skip("Switch as class", () => {
   });
 });
 
+// TODO: port to Map?
 describe("Wrapping navigator online as a state machine", () => {
   function* OfflineStatus() {
     yield listenTo(window, ["online", "offline"]);
@@ -658,6 +660,7 @@ describe("Wrapping navigator online as a state machine", () => {
   });
 });
 
+// TODO: port to Map?
 describe("Wrapping AbortController as a state machine", () => {
   function AbortSender(controller: AbortController) {
     function* Initial() {
@@ -885,7 +888,7 @@ describe("Hovering machine", () => {
     return Up;
   }
 
-  it.only("works with clicking", () => {
+  it("works with clicking", () => {
     const button = document.createElement('button');
     const machine = start(DraggableMachine.bind(null, button));
 
@@ -1007,27 +1010,34 @@ describe("Hovering machine", () => {
   });
 });
 
-describe("FIXME: Key shortcut click highlighting too many event listeners bug", () => {
+// TODO: port to Map?
+describe("Key shortcut click highlighting too many event listeners bug", () => {
   function KeyShortcutListener(el: HTMLElement) {
-    function* Open() {
-      yield on("keydown", OpenCheckingKey);
-      yield listenTo(el, ["keydown"]);
+    function isEscapeKey(readContext: ReadContextCallback) {
+      const event = readContext("event");
+      return event instanceof KeyboardEvent && event.key === "Escape";
     }
-    function* OpenCheckingKey() {
-      const event: KeyboardEvent = yield readContext("event");
-      yield cond(event.key === 'Escape', Closed);
-      // yield revert();
-      yield always(Open);
+    function isEnterKey(readContext: ReadContextCallback) {
+      const event = readContext("event");
+      return event instanceof KeyboardEvent && event.key === "Enter";
+    }
+
+    const openChoiceKeydown = new Map([
+      [isEscapeKey, Closed],
+      [null, Open as any],
+    ]);
+    const closedChoiceKeydown = new Map([
+      [isEnterKey, Open],
+      [null, Closed as any],
+    ]);
+
+    function* Open() {
+      yield on("keydown", openChoiceKeydown);
+      yield listenTo(el, ["keydown"]);
     }
     function* Closed() {
-      yield on("keydown", ClosedCheckingKey);
+      yield on("keydown", closedChoiceKeydown);
       yield listenTo(el, ["keydown"]);
-    }
-    function* ClosedCheckingKey() {
-      const event: KeyboardEvent = yield readContext("event");
-      yield cond(event.key === 'Enter', Open);
-      // yield revert();
-      yield always(Closed);
     }
 
     return Closed;
@@ -1046,31 +1056,31 @@ describe("FIXME: Key shortcut click highlighting too many event listeners bug", 
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
     expect(machine.value).toMatchObject({
       state: "Open",
-      change: 2,
+      change: 1,
     });
 
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
     expect(machine.value).toMatchObject({
       state: "Open",
-      change: 4,
+      change: 1,
     });
 
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'a' }));
     expect(machine.value).toMatchObject({
       state: "Open",
-      change: 6,
+      change: 1,
     });
 
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
     expect(machine.value).toMatchObject({
       state: "Closed",
-      change: 8,
+      change: 2,
     });
 
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'a' }));
     expect(machine.value).toMatchObject({
       state: "Closed",
-      change: 10,
+      change: 2,
     });
 
     aborter.abort();

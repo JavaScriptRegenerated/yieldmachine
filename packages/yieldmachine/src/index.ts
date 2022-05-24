@@ -23,15 +23,16 @@ export interface ExitAction {
   f: ExitActionBody;
 }
 
+export type ReadContextCallback = (contextName: string | symbol) => unknown;
+
 export type PrimitiveState = boolean | number | string | symbol;
 export type StateDefinition = () => Generator<Yielded, any, unknown>;
-export type ChoiceDefinition = Map<(() => boolean) | null, StateDefinition>;
+export type ChoiceDefinition = Map<((readContext: ReadContextCallback) => boolean) | null, StateDefinition>;
+
 
 export interface Cond {
   type: "cond";
-  cond:
-    | ((readContext: (contextName: string | symbol) => unknown) => boolean)
-    | boolean;
+  cond: ((readContext: ReadContextCallback) => boolean) | boolean;
   target: StateDefinition;
 }
 export interface Compound {
@@ -156,9 +157,7 @@ export function always(target: Target): Always {
 }
 
 export function cond(
-  cond:
-    | ((readContext: (contextName: string | symbol) => unknown) => boolean)
-    | boolean,
+  cond: ((readContext: ReadContextCallback) => boolean) | boolean,
   target: StateDefinition
 ): Cond {
   return { type: "cond", cond, target };
@@ -241,7 +240,7 @@ class Handlers {
 
   add(
     value: Yielded,
-    readContext: (contextName: string | symbol) => unknown
+    readContext: ReadContextCallback
   ): unknown | void {
     if (value.type === "entry") {
       this.entryActions.push(value);
@@ -357,7 +356,7 @@ class InternalInstance {
       sendEvent: (event: string, changeCount?: number) => void;
       willHandleEvent: (event: Event) => void;
       didHandleEvent: (event: Event) => void;
-      readContext: (contextName: string | symbol) => unknown;
+      readContext: ReadContextCallback;
     }
   ) {
     this.definition = machineDefinition;
@@ -587,8 +586,7 @@ class InternalInstance {
         let receiver: InternalInstance = this;
         if (target.targets instanceof Map) {
           for (const [cond, checkTarget] of target.targets) {
-            // const result = typeof cond === "boolean" ? cond : cond(this.callbacks.readContext);
-            const result: boolean = cond === null ? true : cond();
+            const result: boolean = cond === null ? true : cond(this.callbacks.readContext);
             if (result === true) {
               this.transitionTo(checkTarget);
               return true;
@@ -619,8 +617,7 @@ class InternalInstance {
       }
     } else if (target instanceof Map && this.parent !== null) {
       for (const [cond, checkTarget] of target) {
-        // const result = typeof cond === "boolean" ? cond : cond(this.callbacks.readContext);
-        const result: boolean = cond === null ? true : cond();
+        const result: boolean = cond === null ? true : cond(this.callbacks.readContext);
         if (result === true) {
           this.parent.transitionTo(checkTarget);
           return true;
@@ -703,10 +700,11 @@ export function start(
         return _changeCount;
       },
       willChangeState() {
-        // _changeCount += 1;
+        // FIXME: why do we have to do this in the will change, and not the did change?
+        _changeCount += 1;
       },
       didChangeState(state) {
-        _changeCount += 1;
+        // _changeCount += 1;
         _eventTarget.dispatchEvent(
           new MachineStateChangedEvent("StateChanged", state)
         );
