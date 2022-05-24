@@ -23,6 +23,7 @@ export interface ExitAction {
   f: ExitActionBody;
 }
 
+export type PrimitiveState = boolean | number | string;
 export type StateDefinition = () => Generator<Yielded, any, unknown>;
 export interface Cond {
   type: "cond";
@@ -267,6 +268,10 @@ class Handlers {
   }
 }
 
+function isPrimitiveState(value: unknown): value is PrimitiveState {
+  return typeof value === 'boolean' || typeof value === 'number' || typeof value === 'string'
+}
+
 class InternalInstance {
   private definition: (() => StateDefinition) | (() => Generator<Yielded, StateDefinition, never>) | (() => Generator<Yielded, boolean | number | string, never>)
   private parent: null | InternalInstance
@@ -303,7 +308,7 @@ class InternalInstance {
   get current(): null | string | number | boolean | Record<string, unknown> {
     if (this.child === null) {
       return this.definition.name;
-    } else if (typeof this.child === 'string' || typeof this.child === 'number' || typeof this.child === 'boolean') {
+    } else if (isPrimitiveState(this.child)) {
       return { [this.definition.name]: this.child };
     } else {
       // return [[this.definition.name], this.child.current];
@@ -417,7 +422,7 @@ class InternalInstance {
       throw Error(`State Machine definition returned invalid initial value ${initialReturn}`);
     }
 
-    if (typeof initialStateDefinition === 'boolean' || typeof initialStateDefinition === 'number' || typeof initialStateDefinition === 'string') {
+    if (isPrimitiveState(initialStateDefinition)) {
       this.child = initialStateDefinition
     } else {
       this.transitionTo(initialStateDefinition as StateDefinition | undefined);
