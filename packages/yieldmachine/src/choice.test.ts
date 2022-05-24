@@ -33,7 +33,7 @@ describe("toggle syncing from external state", () => {
     expect(machine.value.state).toEqual("Open");
     machine.next("toggle");
     expect(machine.value.state).toEqual("Closed");
-  })
+  });
 });
 
 describe("Form Field Machine with external validation", () => {
@@ -41,17 +41,18 @@ describe("Form Field Machine with external validation", () => {
   beforeEach(isValid.mockClear);
 
   function FormField() {
-    const validating = new Map([
-      [isValid, valid],
-      [true as any, invalid as any],
-    ]);
-
     function* initial() {
       yield on("CHANGE", editing);
     }
     function* editing() {
       yield on("CHANGE", editing);
-      yield on("BLUR", validating);
+      yield on(
+        "BLUR",
+        new Map([
+          [isValid, valid],
+          [true as any, invalid],
+        ])
+      );
     }
     function* invalid() {
       yield on("CHANGE", editing);
