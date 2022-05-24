@@ -28,7 +28,7 @@ describe("accumulate()", () => {
   }
 
   it("appends dispatched events to array", () => {
-    const eventTarget = (new AbortController()).signal;
+    const eventTarget = new EventTarget();
     const machine = start(Machine.bind(null, eventTarget));
 
     const stateChangedListener = jest.fn();
