@@ -134,3 +134,47 @@ describe("Menu/Exclusive Value string mapper", () => {
     expect(machine.value.state).toEqual("");
   });
 });
+
+describe("Menu/Exclusive Value symbol mapper", () => {
+  const Closed = Symbol("closed");
+  const File = Symbol("file");
+  const Edit = Symbol("edit");
+  const View = Symbol("view");
+  function* Menu() {
+    function onMenuItem(id: symbol) {
+      return on(id, map((current: symbol) => current === id ? Closed : id as symbol))
+    }
+    yield onMenuItem(File);
+    yield onMenuItem(Edit);
+    yield onMenuItem(View);
+    yield on("close", map(() => Closed as symbol));
+
+    return Closed;
+  }
+
+  test("sending events", () => {
+    const machine = start(Menu);
+    expect(machine).toBeDefined();
+    expect(machine.value.state).toEqual(Closed);
+    machine.next(File);
+    expect(machine.value.state).toEqual(File);
+    machine.next("close");
+    expect(machine.value.state).toEqual(Closed);
+    machine.next(File);
+    expect(machine.value.state).toEqual(File);
+    machine.next(File);
+    expect(machine.value.state).toEqual(Closed);
+    machine.next(File);
+    expect(machine.value.state).toEqual(File);
+    machine.next(Edit);
+    expect(machine.value.state).toEqual(Edit);
+    machine.next(View);
+    expect(machine.value.state).toEqual(View);
+    machine.next(Edit);
+    expect(machine.value.state).toEqual(Edit);
+    machine.next(Edit);
+    expect(machine.value.state).toEqual(Closed);
+    machine.next("close");
+    expect(machine.value.state).toEqual(Closed);
+  });
+});

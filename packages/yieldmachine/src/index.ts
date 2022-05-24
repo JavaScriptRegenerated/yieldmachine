@@ -23,7 +23,7 @@ export interface ExitAction {
   f: ExitActionBody;
 }
 
-export type PrimitiveState = boolean | number | string;
+export type PrimitiveState = boolean | number | string | symbol;
 export type StateDefinition = () => Generator<Yielded, any, unknown>;
 export interface Cond {
   type: "cond";
@@ -38,7 +38,7 @@ export interface Mapper<State> {
   type: "mapper";
   transform: (current: State) => State;
 }
-export type Target = StateDefinition | Cond | Compound | Mapper<boolean> | Mapper<number> | Mapper<string>;
+export type Target = StateDefinition | Cond | Compound | Mapper<boolean> | Mapper<number> | Mapper<string> | Mapper<symbol>;
 export interface On {
   type: "on";
   on: string | symbol;
@@ -80,7 +80,7 @@ export function on<Event extends string | symbol | ErrorConstructor>(event: Even
   return { type: "on", on: typeof event === 'function' && 'name' in event ? event.name : event, target };
 }
 
-export function map<T extends boolean | number | string>(transform: (current: T) => T): Mapper<T> {
+export function map<T extends PrimitiveState>(transform: (current: T) => T): Mapper<T> {
   return {
     type: "mapper",
     transform
@@ -142,7 +142,7 @@ export function readContext(contextName: string | symbol): ReadContext {
 
 interface MachineValue {
   readonly change: number;
-  readonly state: null | string | number | boolean | Record<string, string>;
+  readonly state: null | PrimitiveState | Record<string, PrimitiveState>;
   readonly actions: Array<EntryAction | ExitAction>;
   readonly results: null | Promise<unknown>;
 }
@@ -151,7 +151,7 @@ export interface MachineInstance extends Iterator<MachineValue, void, string | s
   readonly value: MachineValue;
   readonly changeCount: number;
   // TODO: remove `current`
-  readonly current: null | string | number | boolean | Record<string, string>;
+  readonly current: null | PrimitiveState | Record<string, PrimitiveState>;
   readonly results: null | Promise<unknown>;
   readonly accumulations: Map<symbol | string, Array<symbol | string | Event>>;
   readonly done: boolean;
@@ -269,26 +269,26 @@ class Handlers {
 }
 
 function isPrimitiveState(value: unknown): value is PrimitiveState {
-  return typeof value === 'boolean' || typeof value === 'number' || typeof value === 'string'
+  return typeof value === 'boolean' || typeof value === 'number' || typeof value === 'string' || typeof value === 'symbol';
 }
 
 class InternalInstance {
-  private definition: (() => StateDefinition) | (() => Generator<Yielded, StateDefinition, never>) | (() => Generator<Yielded, boolean | number | string, never>)
+  private definition: (() => StateDefinition) | (() => Generator<Yielded, StateDefinition, never>) | (() => Generator<Yielded, PrimitiveState, never>)
   private parent: null | InternalInstance
   private globalHandlers = new Handlers()
   private resolved = null as Promise<Record<string, any>> | null
   private accumulations: Map<symbol | string, Array<symbol | string | Event>> = new Map();
   private aborter = new AbortController();
-  child: null | string | number | boolean | InternalInstance = null
+  child: null | PrimitiveState | InternalInstance = null
 
   constructor(
     parent: null | InternalInstance,
-    machineDefinition: (() => StateDefinition) | (() => Generator<Yielded, StateDefinition, never>) | (() => Generator<Yielded, boolean | number | string, never>),
+    machineDefinition: (() => StateDefinition) | (() => Generator<Yielded, StateDefinition, never>) | (() => Generator<Yielded, PrimitiveState, never>),
     private signal: AbortSignal,
     private callbacks: {
       readonly changeCount: number;
       willChangeState: () => void;
-      didChangeState: (state: string | number | boolean | Record<string, unknown>) => void;
+      didChangeState: (state: PrimitiveState | Record<string, unknown>) => void;
       didChangeAccumulations: () => void;
       sendEvent: (event: string, changeCount?: number) => void;
       willHandleEvent: (event: Event) => void;
@@ -305,7 +305,7 @@ class InternalInstance {
     }, { once: true });
   }
 
-  get current(): null | string | number | boolean | Record<string, unknown> {
+  get current(): null | PrimitiveState | Record<string, unknown> {
     if (this.child === null) {
       return this.definition.name;
     } else if (isPrimitiveState(this.child)) {
@@ -370,7 +370,7 @@ class InternalInstance {
     this.globalHandlers.reset();
   }
 
-  consume(stateGenerator: (() => StateDefinition) | (() => Generator<Yielded, StateDefinition, never>) | (() => Generator<Yielded, boolean | number | string, never>)) {
+  consume(stateGenerator: (() => StateDefinition) | (() => Generator<Yielded, StateDefinition, never>) | (() => Generator<Yielded, PrimitiveState, never>)) {
     // this.cleanup();
 
     this.willEnter();
@@ -535,16 +535,16 @@ const FallbackEvent = class Event {
 const BaseEvent = typeof Event !== 'undefined' ? Event : FallbackEvent
 
 class MachineStateChangedEvent extends BaseEvent {
-  readonly value: string | number | boolean | Record<string, unknown>;
+  readonly value: PrimitiveState | Record<string, unknown>;
 
-  constructor(type: string, value: string | number | boolean | Record<string, unknown>) {
+  constructor(type: string, value: PrimitiveState | Record<string, unknown>) {
     super(type)
     this.value = value;
   }
 }
 
 export function start(
-  machine: (() => StateDefinition) | (() => Generator<Yielded, StateDefinition, never>) | (() => Generator<Yielded, boolean | number | string, never>),
+  machine: (() => StateDefinition) | (() => Generator<Yielded, StateDefinition, never>) | (() => Generator<Yielded, PrimitiveState, never>),
   options: { signal?: AbortSignal } = {}
 ): MachineInstance {
   let _changeCount = -1;
@@ -657,7 +657,7 @@ export function start(
   };
 }
 
-export function onceStateChangesTo(machineInstance: MachineInstance, state: string | number | boolean, signal: AbortSignal): Promise<void> {
+export function onceStateChangesTo(machineInstance: MachineInstance, state: PrimitiveState, signal: AbortSignal): Promise<void> {
   return new Promise((resolve) => {
     machineInstance.eventTarget.addEventListener("StateChanged", (event) => {
       if (event instanceof MachineStateChangedEvent && event.value === state) {
