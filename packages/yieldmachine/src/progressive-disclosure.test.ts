@@ -11,6 +11,7 @@ import {
   on,
   listenTo,
   start,
+  choice,
 } from "./index";
 
 describe("Syncing from HTML <details> element with choice Map", () => {
@@ -21,7 +22,7 @@ describe("Syncing from HTML <details> element with choice Map", () => {
     ]);
 
     yield listenTo(el, ["toggle"]);
-    yield on("toggle", checkingOpen);
+    yield on("toggle", choice(checkingOpen));
 
     function* Closed() { }
     function* Open() { }

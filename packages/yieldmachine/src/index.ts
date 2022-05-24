@@ -25,10 +25,7 @@ export interface ExitAction {
 
 export type PrimitiveState = boolean | number | string | symbol;
 export type StateDefinition = () => Generator<Yielded, any, unknown>;
-export type ChoiceDefinition = Map<
-  (() => boolean) | boolean,
-  StateDefinition
->;
+export type ChoiceDefinition = Map<(() => boolean) | boolean, StateDefinition>;
 
 export interface Cond {
   type: "cond";
@@ -39,7 +36,7 @@ export interface Cond {
 }
 export interface Compound {
   type: "compound";
-  targets: Array<StateDefinition>;
+  targets: Array<StateDefinition> | ChoiceDefinition;
 }
 export interface Mapper<State> {
   type: "mapper";
@@ -170,6 +167,10 @@ export function cond(
 // TODO: rename to child() or nested() or something else?
 export function compound(...targets: Array<StateDefinition>): Compound {
   return { type: "compound", targets };
+}
+
+export function choice(choice: ChoiceDefinition): Compound {
+  return { type: "compound", targets: choice };
 }
 
 export function accumulate(
@@ -584,12 +585,23 @@ class InternalInstance {
         }
       } else if (target.type === "compound") {
         let receiver: InternalInstance = this;
-        for (const nestedTarget of target.targets) {
-          receiver.transitionTo(nestedTarget);
-          if (receiver.child instanceof InternalInstance) {
-            receiver = receiver.child;
-          } else {
-            break;
+        if (target.targets instanceof Map) {
+          for (const [cond, checkTarget] of target.targets) {
+            // const result = typeof cond === "boolean" ? cond : cond(this.callbacks.readContext);
+            const result = typeof cond === "boolean" ? cond : cond();
+            if (result === true) {
+              this.transitionTo(checkTarget);
+              return true;
+            }
+          }
+        } else {
+          for (const nestedTarget of target.targets) {
+            receiver.transitionTo(nestedTarget);
+            if (receiver.child instanceof InternalInstance) {
+              receiver = receiver.child;
+            } else {
+              break;
+            }
           }
         }
       } else if (target.type === "mapper") {
@@ -605,12 +617,12 @@ class InternalInstance {
         );
         this.didMutate();
       }
-    } else if (target instanceof Map) {
+    } else if (target instanceof Map && this.parent !== null) {
       for (const [cond, checkTarget] of target) {
         // const result = typeof cond === "boolean" ? cond : cond(this.callbacks.readContext);
         const result = typeof cond === "boolean" ? cond : cond();
         if (result === true) {
-          this.transitionTo(checkTarget);
+          this.parent.transitionTo(checkTarget);
           return true;
         }
       }

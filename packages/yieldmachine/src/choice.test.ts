@@ -1,6 +1,6 @@
-import { on, start } from "./index";
+import { choice, on, start } from "./index";
 
-describe("it works with a Map", () => {
+describe("toggle syncing from external state", () => {
   let openValue = false;
   function* ToggleExternalState() {
     const checkingOpen = new Map([
@@ -8,7 +8,7 @@ describe("it works with a Map", () => {
       [true as any, Closed],
     ]);
 
-    yield on("toggle", checkingOpen);
+    yield on("toggle", choice(checkingOpen));
 
     function* Closed() {}
     function* Open() {}
@@ -34,4 +34,80 @@ describe("it works with a Map", () => {
     machine.next("toggle");
     expect(machine.value.state).toEqual("Closed");
   })
+});
+
+describe("Form Field Machine with external validation", () => {
+  const isValid = jest.fn();
+  beforeEach(isValid.mockClear);
+
+  function FormField() {
+    const validating = new Map([
+      [isValid, valid],
+      [true as any, invalid as any],
+    ]);
+
+    function* initial() {
+      yield on("CHANGE", editing);
+    }
+    function* editing() {
+      yield on("CHANGE", editing);
+      yield on("BLUR", validating);
+    }
+    function* invalid() {
+      yield on("CHANGE", editing);
+    }
+    function* valid() {
+      yield on("CHANGE", editing);
+    }
+
+    return initial;
+  }
+
+  describe("when is valid", () => {
+    beforeEach(() => {
+      isValid.mockReturnValue(true);
+    });
+
+    test("sending events", () => {
+      const formField = start(FormField);
+      expect(formField).toBeDefined();
+      expect(formField.current).toEqual("initial");
+
+      formField.next("CHANGE");
+      expect(formField.current).toEqual("editing");
+      expect(formField.changeCount).toEqual(1);
+
+      formField.next("CHANGE");
+      expect(formField.current).toEqual("editing");
+      expect(formField.changeCount).toEqual(1);
+
+      formField.next("BLUR");
+      expect(formField.current).toEqual("valid");
+      expect(formField.changeCount).toEqual(2);
+    });
+  });
+
+  describe("when is invalid", () => {
+    beforeEach(() => {
+      isValid.mockReturnValue(false);
+    });
+
+    test("sending events", () => {
+      const formField = start(FormField);
+      expect(formField).toBeDefined();
+      expect(formField.current).toEqual("initial");
+
+      formField.next("CHANGE");
+      expect(formField.current).toEqual("editing");
+      expect(formField.changeCount).toEqual(1);
+
+      formField.next("CHANGE");
+      expect(formField.current).toEqual("editing");
+      expect(formField.changeCount).toEqual(1);
+
+      formField.next("BLUR");
+      expect(formField.current).toEqual("invalid");
+      expect(formField.changeCount).toEqual(2);
+    });
+  });
 });
