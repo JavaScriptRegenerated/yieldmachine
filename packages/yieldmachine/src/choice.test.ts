@@ -5,7 +5,7 @@ describe("toggle syncing from external state", () => {
   function* ToggleExternalState() {
     const checkingOpen = new Map([
       [() => openValue, Open],
-      [true as any, Closed],
+      [null, Closed],
     ]);
 
     yield on("toggle", choice(checkingOpen));
@@ -50,7 +50,7 @@ describe("Form Field Machine with external validation", () => {
         "BLUR",
         new Map([
           [isValid, valid],
-          [true as any, invalid],
+          [null, invalid],
         ])
       );
     }

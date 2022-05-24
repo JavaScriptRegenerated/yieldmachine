@@ -18,7 +18,7 @@ describe("Syncing from HTML <details> element with choice Map", () => {
   function* DetailsListener(el: HTMLDetailsElement) {
     const checkingOpen = new Map([
       [() => el.open, Open],
-      [true as any, Closed],
+      [null, Closed],
     ]);
 
     yield listenTo(el, ["toggle"]);

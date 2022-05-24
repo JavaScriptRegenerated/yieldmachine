@@ -25,7 +25,7 @@ export interface ExitAction {
 
 export type PrimitiveState = boolean | number | string | symbol;
 export type StateDefinition = () => Generator<Yielded, any, unknown>;
-export type ChoiceDefinition = Map<(() => boolean) | boolean, StateDefinition>;
+export type ChoiceDefinition = Map<(() => boolean) | null, StateDefinition>;
 
 export interface Cond {
   type: "cond";
@@ -514,7 +514,7 @@ class InternalInstance {
     } else if (initialStateDefinition instanceof Map) {
       for (const [cond, checkTarget] of initialStateDefinition) {
         // const result = typeof cond === "boolean" ? cond : cond(this.callbacks.readContext);
-        const result = typeof cond === "boolean" ? cond : cond();
+        const result: boolean = cond === null ? true : cond();
         if (result === true) {
           this.transitionTo(checkTarget);
           return true;
@@ -588,7 +588,7 @@ class InternalInstance {
         if (target.targets instanceof Map) {
           for (const [cond, checkTarget] of target.targets) {
             // const result = typeof cond === "boolean" ? cond : cond(this.callbacks.readContext);
-            const result = typeof cond === "boolean" ? cond : cond();
+            const result: boolean = cond === null ? true : cond();
             if (result === true) {
               this.transitionTo(checkTarget);
               return true;
@@ -620,7 +620,7 @@ class InternalInstance {
     } else if (target instanceof Map && this.parent !== null) {
       for (const [cond, checkTarget] of target) {
         // const result = typeof cond === "boolean" ? cond : cond(this.callbacks.readContext);
-        const result = typeof cond === "boolean" ? cond : cond();
+        const result: boolean = cond === null ? true : cond();
         if (result === true) {
           this.parent.transitionTo(checkTarget);
           return true;
