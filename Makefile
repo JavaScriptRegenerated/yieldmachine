@@ -16,3 +16,6 @@ test_all: $(packages)
 
 watch_core:
 	cd packages/yieldmachine && npm t
+
+publish_core:
+	cd packages/yieldmachine && npm publish
