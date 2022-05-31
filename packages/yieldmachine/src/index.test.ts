@@ -693,17 +693,16 @@ describe("Wrapping AbortController as a state machine", () => {
   }
 
   function* AbortListener(controller: AbortController) {
-    const checking = new Map([
-      [() => controller.signal.aborted, Aborted],
-      [null, Initial],
-    ]);
     function* Initial() {
       yield on("abort", Aborted);
       yield listenTo(controller.signal, ["abort"]);
     }
     function* Aborted() {}
 
-    return checking;
+    return new Map([
+      [() => controller.signal.aborted, Aborted],
+      [null, Initial],
+    ]);
   }
 
   // TODO: remove or do this another way. It could implement Instance!

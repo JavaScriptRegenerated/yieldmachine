@@ -360,21 +360,20 @@ loader.value.results.then((results) => {
 });
 ```
 
-### `AbortController` wrapper
+### `AbortController` wrapper that listens to "abort" event
 
 ```ts
-function AbortListener(controller: AbortController) {
-  function* initial() {
-    if (controller.signal.aborted) {
-      yield always(aborted);
-    } else {
-      yield on("abort", aborted);
-      yield listenTo(controller.signal, "abort");
-    }
+function* AbortListener(controller: AbortController) {
+  function* Initial() {
+    yield on("abort", Aborted);
+    yield listenTo(controller.signal, ["abort"]);
   }
-  function* aborted() {}
+  function* Aborted() {}
 
-  return initial;
+  return new Map([
+    [() => controller.signal.aborted, Aborted],
+    [null, Initial],
+  ]);
 }
 
 const aborter = new AbortController();
@@ -395,6 +394,7 @@ machine.value; // { state: "aborted", change: 1 }
 - [ ] More examples!
 - [ ] Hook for React
 - [ ] Hook for Preact
+- [ ] Hook for Vue
 
 ```js
 function *Parallel() {
