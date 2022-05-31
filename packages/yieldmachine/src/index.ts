@@ -1,10 +1,3 @@
-// TODO: remove? Replaced by send?
-export interface Call<A extends Array<any>> {
-  type: "call";
-  f: (...args: A) => void;
-  args: A;
-}
-
 export interface EntryActionBody {
   // (): void;
   ({ signal }: { signal: AbortSignal }): void;
@@ -118,13 +111,6 @@ export function map<T extends PrimitiveState>(
     type: "mapper",
     transform,
   };
-}
-
-export function call<Arguments extends Array<any>>(
-  f: (...args: Arguments) => void,
-  args: Arguments
-): Call<Arguments> {
-  return { type: "call", f, args };
 }
 
 export function entry(f: EntryActionBody | Send<string, any[]>): EntryAction {
