@@ -90,8 +90,7 @@ export type Yielded =
   | ExitAction
   | ListenTo
   | ReadContext
-  | Accumulate
-  | Call<any>;
+  | Accumulate;
 
 export function on<Event extends string | symbol | ErrorConstructor>(
   event: Event,
