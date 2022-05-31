@@ -9,15 +9,9 @@ import {
   always,
   compound,
   cond,
-  entry,
-  exit,
   on,
   listenTo,
-  send,
-  start,
-  accumulate,
-  onceStateChangesTo,
-  readContext,
+  start
 } from "./index";
 
 describe("Element focus", () => {

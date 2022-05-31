@@ -131,6 +131,7 @@ export function listenTo(
   return { type: "listenTo", sender, eventNames: Array.from(eventNames) };
 }
 
+// TODO: remove?
 export function send<Method extends string | symbol, Arguments extends any[]>(
   target: () => Record<Method, (...args: Arguments) => void>,
   method: Method,

@@ -14,21 +14,9 @@ import "@testing-library/jest-dom";
 import { render, screen } from "@testing-library/react";
 import user from "@testing-library/user-event";
 import {
-  always,
-  compound,
-  cond,
-  entry,
-  exit,
   on,
-  listenTo,
-  send,
   start,
-  accumulate,
-  onceStateChangesTo,
-  readContext,
-  MachineInstance,
-  StateDefinition,
-  Yielded,
+  MachineInstance
 } from "./index";
 
 describe("simple button", () => {
