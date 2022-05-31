@@ -160,6 +160,10 @@ machine.next("TOGGLE");
 machine.value.state; // "Off"
 ```
 
+#### `cond(predicate: (readContext: ReadContextCallback) => boolean, target: GeneratorFunction)`
+
+Passed as the 2nd argument to `on()` to conditionally transition to an event. Can read from context to help make its decision.
+
 ### `entry(action: ({ signal }: { signal: AbortSignal }) => undefined | unknown | Promise<unknown>)`
 
 Runs the provided function when this state is entered. If the function returns a promise, its value is made available in the `.results` property of the machine, keyed by the name of this passed function.
@@ -226,14 +230,6 @@ console.log(lastSessionEnded, machine.value.state); // null, "SignedIn"
 machine.next("LOG_OFF");
 console.log(lastSessionEnded, machine.value.state); // (current time), "SignedOut"
 ```
-
-### `cond(predicate: () => boolean, target: GeneratorFunction)`
-
-Immediately transitions to the target state if the provided predicate function returns `true`.
-
-### `always(target: GeneratorFunction)`
-
-Immediately transitions to the target state, if previous `cond()` did not pass.
 
 ### `listenTo(sender: EventTarget, eventName: string | string[])`
 
