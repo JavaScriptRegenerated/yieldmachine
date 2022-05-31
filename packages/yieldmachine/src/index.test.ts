@@ -695,18 +695,18 @@ describe("Wrapping AbortController as a state machine", () => {
     return Initial;
   }
 
-  function AbortListener(controller: AbortController) {
+  function* AbortListener(controller: AbortController) {
+    const checking = new Map([
+      [() => controller.signal.aborted, Aborted],
+      [null, Initial],
+    ]);
     function* Initial() {
-      if (controller.signal.aborted) {
-        yield always(Aborted);
-      } else {
-        yield on("abort", Aborted);
-        yield listenTo(controller.signal, ["abort"]);
-      }
+      yield on("abort", Aborted);
+      yield listenTo(controller.signal, ["abort"]);
     }
     function* Aborted() {}
 
-    return Initial;
+    return checking;
   }
 
   function AbortOwner() {
