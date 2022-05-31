@@ -3,7 +3,6 @@
  */
 
 import {
-  always,
   compound,
   cond,
   entry,
@@ -12,11 +11,8 @@ import {
   listenTo,
   send,
   start,
-  accumulate,
   onceStateChangesTo,
-  readContext,
   ReadContextCallback,
-  StateDefinition,
 } from "./index";
 
 test("node version " + process.version, () => {});
@@ -320,17 +316,17 @@ describe("Form Field Machine with always()", () => {
   beforeEach(isValid.mockClear);
 
   function FormField() {
+    const validating = new Map([
+      [isValid, valid as any],
+      [null, invalid],
+    ]);
+
     function* initial() {
       yield on("CHANGE", editing);
     }
     function* editing() {
       yield on("CHANGE", editing);
       yield on("BLUR", validating);
-    }
-    function* validating() {
-      yield cond(isValid, valid);
-      // yield cond(true, invalid);
-      yield always(invalid);
     }
     function* invalid() {
       yield on("CHANGE", editing);
@@ -362,7 +358,7 @@ describe("Form Field Machine with always()", () => {
 
       formField.next("BLUR");
       expect(formField.current).toEqual("valid");
-      expect(formField.changeCount).toEqual(3);
+      expect(formField.changeCount).toEqual(2);
     });
   });
 
@@ -386,7 +382,7 @@ describe("Form Field Machine with always()", () => {
 
       formField.next("BLUR");
       expect(formField.current).toEqual("invalid");
-      expect(formField.changeCount).toEqual(3);
+      expect(formField.changeCount).toEqual(2);
     });
   });
 });
@@ -623,10 +619,10 @@ describe("Wrapping navigator online as a state machine", () => {
     function* Online() {}
     function* Offline() {}
 
-    return function* Pending() {
-      yield cond(navigator.onLine, Online);
-      yield always(Offline);
-    };
+    return new Map([
+      [() => navigator.onLine, Online],
+      [null, Offline],
+    ]);
   }
 
   describe("when online", () => {

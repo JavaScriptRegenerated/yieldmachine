@@ -58,10 +58,6 @@ export interface ListenTo {
   eventNames: Array<string>;
   sender: EventTarget;
 }
-export interface Always {
-  type: "always";
-  target: Target;
-}
 
 export interface Send<Method extends string | symbol, Arguments extends any[]> {
   type: "send";
@@ -84,7 +80,6 @@ export interface ReadContext {
 
 export type Yielded =
   | On
-  | Always
   | Cond
   | EntryAction
   | ExitAction
@@ -140,10 +135,6 @@ export function send<Method extends string | symbol, Arguments extends any[]>(
   return { type: "send", target, method, args };
 }
 
-export function always(target: Target): Always {
-  return { type: "always", target };
-}
-
 export function cond(
   cond: ((readContext: ReadContextCallback) => boolean) | boolean,
   target: StateDefinition
@@ -195,7 +186,7 @@ export interface MachineInstance
 class Handlers {
   private aborter = new AbortController();
   private eventsMap = new Map<string | symbol, Target>();
-  private alwaysArray = new Array<Target>();
+  private condArray = new Array<Target>();
   private entryActions = [] as Array<EntryAction>;
   private exitActions = [] as Array<ExitAction>;
   private promises = [] as Array<Promise<unknown> | unknown>;
@@ -219,7 +210,7 @@ class Handlers {
     this.eventsMap.clear();
     this.entryActions.splice(0, Infinity);
     this.exitActions.splice(0, Infinity);
-    this.alwaysArray.splice(0, Infinity);
+    this.condArray.splice(0, Infinity);
     this.promises.splice(0, Infinity);
     this.actionResults.clear();
     this.eventsToListenTo.splice(0, Infinity);
@@ -258,10 +249,8 @@ class Handlers {
       this.exitActions.push(value);
     } else if (value.type === "on") {
       this.eventsMap.set(value.on, value.target);
-    } else if (value.type === "always") {
-      this.alwaysArray.push(value.target);
     } else if (value.type === "cond") {
-      this.alwaysArray.push(value);
+      this.condArray.push(value);
     } else if (value.type === "listenTo") {
       for (const eventName of value.eventNames) {
         this.eventsToListenTo.push([eventName, value.sender]);
@@ -294,7 +283,7 @@ class Handlers {
   }
 
   runAlways(process: (target: Target) => boolean) {
-    this.alwaysArray.some(process);
+    this.condArray.some(process);
   }
 
   targetForEvent(event: string | symbol) {
