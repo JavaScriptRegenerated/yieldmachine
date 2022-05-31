@@ -326,7 +326,7 @@ function isPrimitiveState(value: unknown): value is PrimitiveState {
 }
 
 interface Instance {
-  readonly current: null | PrimitiveState | Record<string, unknown>;
+  readonly current: PrimitiveState | Record<string, unknown>;
   receive(event: string | symbol | Event): void;
   matchesDefinition(definition: StateDefinition): boolean;
   generateActions?(): Generator<EntryAction, void, undefined>;
@@ -345,7 +345,7 @@ function isNestedInstance(object: unknown): object is Instance {
   );
 }
 
-class GeneratorInstance {
+class GeneratorInstance implements Instance {
   private definition:
     | (() => StateDefinition)
     | (() => Generator<Yielded, StateDefinition, never>)
@@ -395,7 +395,7 @@ class GeneratorInstance {
     return this.definition === definition;
   }
 
-  get current(): null | PrimitiveState | Record<string, unknown> {
+  get current(): PrimitiveState | Record<string, unknown> {
     if (this.child === null) {
       return this.definition.name;
     } else if (isPrimitiveState(this.child)) {
