@@ -3,9 +3,8 @@
  */
 
 import "@testing-library/jest-dom";
-import { within } from "@testing-library/dom";
 import user from "@testing-library/user-event";
-import { always, compound, cond, on, listenTo, start, choice } from "./index";
+import { on, listenTo, start, choice } from "./index";
 
 describe("Element focus", () => {
   function* ButtonFocusListener(el: HTMLElement) {

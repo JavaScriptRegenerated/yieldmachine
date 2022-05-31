@@ -542,7 +542,7 @@ class GeneratorInstance implements Instance {
       this.child = new PrimitiveInstance(initialStateDefinition);
     } else if (initialStateDefinition instanceof Map) {
       for (const [cond, checkTarget] of initialStateDefinition) {
-        const result: boolean = cond === null ? true : cond();
+        const result: boolean = cond === null ? true : cond(this.callbacks.readContext);
         if (result === true) {
           this.transitionTo(checkTarget);
           return;
