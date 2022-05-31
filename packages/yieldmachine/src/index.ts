@@ -334,8 +334,6 @@ interface Instance {
   >;
   matchesDefinition(definition: StateDefinition): boolean;
   receive(event: string | symbol | Event): void;
-  transitionTo?(stateDefinition?: StateDefinition): void;
-  nestedTransition?(stateDefinition: ReadonlyArray<StateDefinition>): void;
 }
 
 function isNestedInstance(object: unknown): object is Instance {
