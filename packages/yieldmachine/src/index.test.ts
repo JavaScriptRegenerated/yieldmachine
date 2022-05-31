@@ -680,7 +680,7 @@ describe("Wrapping navigator online as a state machine", () => {
 
 // TODO: port to Map?
 describe("Wrapping AbortController as a state machine", () => {
-  function AbortSender(controller: AbortController) {
+  function AbortForwarder(controller: AbortController) {
     function* Initial() {
       yield cond(controller.signal.aborted, Aborted);
       yield on("abort", Aborted);
@@ -730,14 +730,14 @@ describe("Wrapping AbortController as a state machine", () => {
     it("is already aborted if passed controller is aborted", () => {
       const aborter = new AbortController();
       aborter.abort();
-      const machine = start(AbortSender.bind(null, aborter));
+      const machine = start(AbortForwarder.bind(null, aborter));
       expect(machine.current).toEqual("Aborted");
       expect(machine.changeCount).toEqual(0);
     });
 
     it("tells AbortController to abort", () => {
       const aborter = new AbortController();
-      const machine = start(AbortSender.bind(null, aborter));
+      const machine = start(AbortForwarder.bind(null, aborter));
 
       expect(machine.current).toEqual("Initial");
       expect(machine.changeCount).toEqual(0);
