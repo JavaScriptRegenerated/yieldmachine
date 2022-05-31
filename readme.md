@@ -132,7 +132,7 @@ Cleans up the machine.
 
 ## Messages
 
-### `on(eventName: string | symbol, target: GeneratorFunction)`
+### `on(eventName: string | symbol, target: GeneratorFunction | Cond | Mapper)`
 
 Transitions to the target state when the given event occurs.
 
