@@ -94,28 +94,28 @@ describe("Element focus", () => {
 
 describe("Textbox validation", () => {
   function* RequiredInputValidationResponder(el: HTMLInputElement) {
+    const checkingActive = new Map([
+      [() => el.ownerDocument.activeElement === el, Active],
+      [null, Inactive],
+    ]);
+    const checkingValid = new Map([
+      [() => el.value === "", InvalidCannotBeEmpty],
+      [() => /^[a-z]+$/.test(el.value) === false, InvalidMustBeLowercase],
+      [null, Valid],
+    ]);
+
     yield listenTo(el, ["input", "blur", "focus"]);
-    yield on("focus", compound(_CheckingActive));
-    yield on("blur", compound(_CheckingActive));
-    yield on("input", compound(_CheckingValid));
+    yield on("focus", choice(checkingActive));
+    yield on("blur", choice(checkingActive));
+    yield on("input", choice(checkingValid));
 
     function* Inactive() {}
     function* Active() {}
-    function* _CheckingActive() {
-      yield cond(el.ownerDocument.activeElement === el, Active);
-      yield always(Inactive);
-    }
     function* Valid() {}
     function* InvalidCannotBeEmpty() {}
     function* InvalidMustBeLowercase() {}
-    function* _CheckingValid() {
-      yield cond(el.value === "", InvalidCannotBeEmpty);
-      yield cond(/^[a-z]+$/.test(el.value) === false, InvalidMustBeLowercase);
-      // yield cond(false)(/^[a-z]+$/.test(el.value), InvalidMustBeLowercase);
-      yield always(Valid);
-    }
 
-    return _CheckingActive;
+    return checkingActive;
   }
 
   it("listens when element receives and loses focus", async () => {
@@ -132,33 +132,37 @@ describe("Textbox validation", () => {
 
     await user.click(input);
     expect(machine.value).toMatchObject({
-      change: 2,
+      change: 1,
       state: "Active",
     });
 
     await user.click(document.body);
     expect(machine.value).toMatchObject({
-      change: 4,
+      change: 2,
       state: "Inactive",
     });
 
     await user.click(input);
+    expect(machine.value).toMatchObject({
+      change: 3,
+      state: "Active",
+    });
     await user.paste("hello");
     expect(machine.value).toMatchObject({
-      change: 8,
+      change: 4,
       state: "Valid",
     });
 
     await user.clear(input);
     expect(machine.value).toMatchObject({
-      change: 10,
+      change: 5,
       state: "InvalidCannotBeEmpty",
     });
 
     await user.click(input);
     await user.paste("HELLO");
     expect(machine.value).toMatchObject({
-      change: 12,
+      change: 6,
       state: "InvalidMustBeLowercase",
     });
 
