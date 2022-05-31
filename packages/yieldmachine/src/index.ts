@@ -327,17 +327,22 @@ function isPrimitiveState(value: unknown): value is PrimitiveState {
 
 interface Instance {
   readonly current: null | PrimitiveState | Record<string, unknown>;
-  generateActions(): Generator<EntryAction, void, undefined>;
-  valuePromises(): AsyncGenerator<Record<string, any>, void, undefined>;
-  allAccumulations(): Generator<
+  receive(event: string | symbol | Event): void;
+  matchesDefinition(definition: StateDefinition): boolean;
+  generateActions?(): Generator<EntryAction, void, undefined>;
+  valuePromises?(): AsyncGenerator<Record<string, any>, void, undefined>;
+  allAccumulations?(): Generator<
     [symbol | string, Array<string | symbol | Event>]
   >;
-  matchesDefinition(definition: StateDefinition): boolean;
-  receive(event: string | symbol | Event): void;
 }
 
 function isNestedInstance(object: unknown): object is Instance {
-  return object instanceof GeneratorInstance;
+  return (
+    object != null &&
+    typeof object === "object" &&
+    "receive" in object &&
+    typeof (object as Instance).receive === "function"
+  );
 }
 
 class GeneratorInstance {
@@ -352,7 +357,7 @@ class GeneratorInstance {
   private accumulations: Map<symbol | string, Array<symbol | string | Event>> =
     new Map();
   private aborter = new AbortController();
-  private child: null | PrimitiveState | GeneratorInstance = null;
+  private child: null | PrimitiveState | Instance = null;
 
   constructor(
     parent: null | GeneratorInstance,
@@ -403,7 +408,7 @@ class GeneratorInstance {
 
   *generateActions(): Generator<EntryAction, void, undefined> {
     yield* this.globalHandlers.actions();
-    if (isNestedInstance(this.child)) {
+    if (isNestedInstance(this.child) && this.child.generateActions) {
       yield* this.child.generateActions();
     }
   }
@@ -412,15 +417,11 @@ class GeneratorInstance {
     return Array.from(this.generateActions());
   }
 
-  async *valuePromises(): AsyncGenerator<
-    Record<string, any>,
-    void,
-    undefined
-  > {
+  async *valuePromises(): AsyncGenerator<Record<string, any>, void, undefined> {
     if (this.resolved !== null) {
       yield await this.resolved;
     }
-    if (isNestedInstance(this.child)) {
+    if (isNestedInstance(this.child) && this.child.valuePromises) {
       yield* this.child.valuePromises();
     }
   }
@@ -446,7 +447,7 @@ class GeneratorInstance {
       yield [key, events];
     }
 
-    if (isNestedInstance(this.child)) {
+    if (isNestedInstance(this.child) && this.child.allAccumulations) {
       yield* this.child.allAccumulations();
     }
   }
