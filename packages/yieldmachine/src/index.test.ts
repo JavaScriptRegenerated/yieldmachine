@@ -674,12 +674,9 @@ describe("Wrapping navigator online as a state machine", () => {
   });
 });
 
-// TODO: port to Map?
 describe("Wrapping AbortController as a state machine", () => {
-  function AbortForwarder(controller: AbortController) {
+  function* AbortForwarder(controller: AbortController) {
     function* Initial() {
-      // TODO: don’t mix cond() with on()
-      yield cond(controller.signal.aborted, Aborted);
       yield on("abort", Aborted);
     }
     function* Aborted() {
@@ -689,7 +686,10 @@ describe("Wrapping AbortController as a state machine", () => {
       });
     }
 
-    return Initial;
+    return new Map([
+      [() => controller.signal.aborted, Aborted as any],
+      [null, Initial]
+    ]);
   }
 
   function* AbortListener(controller: AbortController) {
@@ -706,7 +706,7 @@ describe("Wrapping AbortController as a state machine", () => {
     return checking;
   }
 
-  // TODO: remove or do this another way
+  // TODO: remove or do this another way. It could implement Instance!
   function AbortOwner() {
     // const controllerKey = Symbol('AbortController');
     function controller() {

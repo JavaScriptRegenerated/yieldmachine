@@ -80,7 +80,6 @@ export interface ReadContext {
 
 export type Yielded =
   | On
-  | Cond
   | EntryAction
   | ExitAction
   | ListenTo
@@ -186,7 +185,6 @@ export interface MachineInstance
 class Handlers {
   private aborter = new AbortController();
   private eventsMap = new Map<string | symbol, Target>();
-  private condArray = new Array<Target>();
   private entryActions = [] as Array<EntryAction>;
   private exitActions = [] as Array<ExitAction>;
   private promises = [] as Array<Promise<unknown> | unknown>;
@@ -210,7 +208,6 @@ class Handlers {
     this.eventsMap.clear();
     this.entryActions.splice(0, Infinity);
     this.exitActions.splice(0, Infinity);
-    this.condArray.splice(0, Infinity);
     this.promises.splice(0, Infinity);
     this.actionResults.clear();
     this.eventsToListenTo.splice(0, Infinity);
@@ -249,8 +246,6 @@ class Handlers {
       this.exitActions.push(value);
     } else if (value.type === "on") {
       this.eventsMap.set(value.on, value.target);
-    } else if (value.type === "cond") {
-      this.condArray.push(value);
     } else if (value.type === "listenTo") {
       for (const eventName of value.eventNames) {
         this.eventsToListenTo.push([eventName, value.sender]);
@@ -280,10 +275,6 @@ class Handlers {
     this.exitActions.forEach((action) => {
       action.f();
     });
-  }
-
-  runAlways(process: (target: Target) => boolean) {
-    this.condArray.some(process);
   }
 
   targetForEvent(event: string | symbol) {
@@ -548,7 +539,6 @@ class GeneratorInstance implements Instance {
 
   didEnter() {
     this.callbacks.didChangeState(this.current!);
-    this.globalHandlers.runAlways((target) => this.processTarget(target));
   }
 
   willMutate() {
