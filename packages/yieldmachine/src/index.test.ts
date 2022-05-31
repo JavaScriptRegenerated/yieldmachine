@@ -709,6 +709,7 @@ describe("Wrapping AbortController as a state machine", () => {
     return checking;
   }
 
+  // TODO: remove or do this another way
   function AbortOwner() {
     // const controllerKey = Symbol('AbortController');
     function controller() {
