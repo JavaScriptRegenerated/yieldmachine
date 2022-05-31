@@ -4,32 +4,26 @@
 
 import "@testing-library/jest-dom";
 import { within } from "@testing-library/dom";
-import user from "@testing-library/user-event"
-import {
-  always,
-  compound,
-  cond,
-  on,
-  listenTo,
-  start
-} from "./index";
+import user from "@testing-library/user-event";
+import { always, compound, cond, on, listenTo, start, choice } from "./index";
 
 describe("Element focus", () => {
   function* ButtonFocusListener(el: HTMLElement) {
+    const checkingActive = new Map([
+      [() => el.ownerDocument.activeElement === el, Active],
+      [null, Inactive],
+    ]);
+
     yield listenTo(el, ["blur", "focus"]);
     // yield listenTo(el.ownerDocument, "focusin");
     // yield on("focusin", compound(CheckingActive));
-    yield on("focus", compound(CheckingActive));
-    yield on("blur", compound(CheckingActive));
+    yield on("focus", choice(checkingActive));
+    yield on("blur", choice(checkingActive));
 
     function* Inactive() {}
     function* Active() {}
-    function* CheckingActive() {
-      yield cond(el.ownerDocument.activeElement === el, Active);
-      yield always(Inactive);
-    }
 
-    return CheckingActive;
+    return checkingActive;
   }
 
   it("listens when element receives and loses focus", () => {
@@ -37,7 +31,9 @@ describe("Element focus", () => {
     const button = document.body.appendChild(document.createElement("button"));
     const input = document.body.appendChild(document.createElement("input"));
 
-    const machine = start(ButtonFocusListener.bind(null, button), { signal: aborter.signal });
+    const machine = start(ButtonFocusListener.bind(null, button), {
+      signal: aborter.signal,
+    });
     expect(machine.value).toMatchObject({
       change: 0,
       state: "Inactive",
@@ -45,31 +41,31 @@ describe("Element focus", () => {
 
     button.focus();
     expect(machine.value).toMatchObject({
-      change: 2,
+      change: 1,
       state: "Active",
     });
 
     button.focus();
     expect(machine.value).toMatchObject({
-      change: 2,
+      change: 1,
       state: "Active",
     });
 
     input.focus();
     expect(machine.value).toMatchObject({
-      change: 4,
+      change: 2,
       state: "Inactive",
     });
 
     button.focus();
     expect(machine.value).toMatchObject({
-      change: 6,
+      change: 3,
       state: "Active",
     });
 
     button.blur();
     expect(machine.value).toMatchObject({
-      change: 8,
+      change: 4,
       state: "Inactive",
     });
 
@@ -83,7 +79,9 @@ describe("Element focus", () => {
     const button = document.body.appendChild(document.createElement("button"));
 
     button.focus();
-    const machine = start(ButtonFocusListener.bind(null, button), { signal: aborter.signal });
+    const machine = start(ButtonFocusListener.bind(null, button), {
+      signal: aborter.signal,
+    });
     expect(machine.value).toMatchObject({
       change: 0,
       state: "Active",
@@ -111,7 +109,7 @@ describe("Textbox validation", () => {
     function* InvalidCannotBeEmpty() {}
     function* InvalidMustBeLowercase() {}
     function* _CheckingValid() {
-      yield cond(el.value === '', InvalidCannotBeEmpty);
+      yield cond(el.value === "", InvalidCannotBeEmpty);
       yield cond(/^[a-z]+$/.test(el.value) === false, InvalidMustBeLowercase);
       // yield cond(false)(/^[a-z]+$/.test(el.value), InvalidMustBeLowercase);
       yield always(Valid);
@@ -124,7 +122,9 @@ describe("Textbox validation", () => {
     const aborter = new AbortController();
     const input = document.body.appendChild(document.createElement("input"));
 
-    const machine = start(RequiredInputValidationResponder.bind(null, input), { signal: aborter.signal });
+    const machine = start(RequiredInputValidationResponder.bind(null, input), {
+      signal: aborter.signal,
+    });
     expect(machine.value).toMatchObject({
       change: 0,
       state: "Inactive",
