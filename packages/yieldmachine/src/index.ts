@@ -339,25 +339,25 @@ interface Instance {
 }
 
 function isNestedInstance(object: unknown): object is Instance {
-  return object instanceof InternalInstance;
+  return object instanceof GeneratorInstance;
 }
 
-class InternalInstance {
+class GeneratorInstance {
   private definition:
     | (() => StateDefinition)
     | (() => Generator<Yielded, StateDefinition, never>)
     | (() => Generator<Yielded, PrimitiveState, never>)
     | (() => Generator<Yielded, ChoiceDefinition, never>);
-  private parent: null | InternalInstance;
+  private parent: null | GeneratorInstance;
   private globalHandlers = new Handlers();
   private resolved = null as Promise<Record<string, any>> | null;
   private accumulations: Map<symbol | string, Array<symbol | string | Event>> =
     new Map();
   private aborter = new AbortController();
-  private child: null | PrimitiveState | InternalInstance = null;
+  private child: null | PrimitiveState | GeneratorInstance = null;
 
   constructor(
-    parent: null | InternalInstance,
+    parent: null | GeneratorInstance,
     machineDefinition:
       | (() => StateDefinition)
       | (() => Generator<Yielded, StateDefinition, never>)
@@ -581,7 +581,7 @@ class InternalInstance {
     this.aborter.abort();
 
     this.aborter = new AbortController();
-    const childInstance = new InternalInstance(
+    const childInstance = new GeneratorInstance(
       this,
       stateDefinition,
       this.aborter.signal,
@@ -592,10 +592,10 @@ class InternalInstance {
   }
 
   nestedTransition(stateDefinitions: ReadonlyArray<StateDefinition>): boolean {
-    let receiver: InternalInstance = this;
+    let receiver: GeneratorInstance = this;
     for (const nestedTarget of stateDefinitions) {
       receiver.transitionTo(nestedTarget);
-      if (receiver.child instanceof InternalInstance) {
+      if (receiver.child instanceof GeneratorInstance) {
         receiver = receiver.child;
       } else {
         return false;
@@ -631,7 +631,7 @@ class InternalInstance {
           return this.nestedTransition(target.targets);
         }
       } else if (target.type === "mapper") {
-        if (this.child === null || this.child instanceof InternalInstance) {
+        if (this.child === null || this.child instanceof GeneratorInstance) {
           throw Error(
             "Can only map on primitive state of type: boolean, number, or string."
           );
@@ -663,7 +663,7 @@ class InternalInstance {
   }
 
   receive(event: string | symbol | Event) {
-    if (this.child instanceof InternalInstance) {
+    if (this.child instanceof GeneratorInstance) {
       this.child.receive(event);
     }
 
@@ -720,7 +720,7 @@ export function start(
   let _eventTarget = new EventTarget();
 
   const rootName = machine.name;
-  const instance: InternalInstance = new InternalInstance(
+  const instance: GeneratorInstance = new GeneratorInstance(
     null,
     machine,
     _aborter.signal,
