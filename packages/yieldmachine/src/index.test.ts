@@ -682,6 +682,7 @@ describe("Wrapping navigator online as a state machine", () => {
 describe("Wrapping AbortController as a state machine", () => {
   function AbortForwarder(controller: AbortController) {
     function* Initial() {
+      // TODO: don’t mix cond() with on()
       yield cond(controller.signal.aborted, Aborted);
       yield on("abort", Aborted);
     }
