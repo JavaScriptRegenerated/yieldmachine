@@ -27,8 +27,10 @@ export type ReadContextCallback = (contextName: string | symbol) => unknown;
 
 export type PrimitiveState = boolean | number | string | symbol;
 export type StateDefinition = () => Generator<Yielded, any, unknown>;
-export type ChoiceDefinition = Map<((readContext: ReadContextCallback) => boolean) | null, StateDefinition>;
-
+export type ChoiceDefinition = Map<
+  ((readContext: ReadContextCallback) => boolean) | null,
+  StateDefinition
+>;
 
 export interface Cond {
   type: "cond";
@@ -238,10 +240,7 @@ class Handlers {
     this.eventsToAccumulate.splice(0, Infinity);
   }
 
-  add(
-    value: Yielded,
-    readContext: ReadContextCallback
-  ): unknown | void {
+  add(value: Yielded, readContext: ReadContextCallback): unknown | void {
     if (value.type === "entry") {
       this.entryActions.push(value);
 
@@ -326,6 +325,23 @@ function isPrimitiveState(value: unknown): value is PrimitiveState {
   );
 }
 
+interface Instance {
+  readonly current: null | PrimitiveState | Record<string, unknown>;
+  generateActions(): Generator<EntryAction, void, undefined>;
+  valuePromises(): AsyncGenerator<Record<string, any>, void, undefined>;
+  allAccumulations(): Generator<
+    [symbol | string, Array<string | symbol | Event>]
+  >;
+  matchesDefinition(definition: StateDefinition): boolean;
+  receive(event: string | symbol | Event): void;
+  transitionTo?(stateDefinition?: StateDefinition): void;
+  nestedTransition?(stateDefinition: ReadonlyArray<StateDefinition>): void;
+}
+
+function isNestedInstance(object: unknown): object is Instance {
+  return object instanceof InternalInstance;
+}
+
 class InternalInstance {
   private definition:
     | (() => StateDefinition)
@@ -338,7 +354,7 @@ class InternalInstance {
   private accumulations: Map<symbol | string, Array<symbol | string | Event>> =
     new Map();
   private aborter = new AbortController();
-  child: null | PrimitiveState | InternalInstance = null;
+  private child: null | PrimitiveState | InternalInstance = null;
 
   constructor(
     parent: null | InternalInstance,
@@ -372,6 +388,10 @@ class InternalInstance {
     );
   }
 
+  matchesDefinition(definition: StateDefinition) {
+    return this.definition === definition;
+  }
+
   get current(): null | PrimitiveState | Record<string, unknown> {
     if (this.child === null) {
       return this.definition.name;
@@ -383,9 +403,9 @@ class InternalInstance {
     }
   }
 
-  private *generateActions(): Generator<EntryAction, void, undefined> {
+  *generateActions(): Generator<EntryAction, void, undefined> {
     yield* this.globalHandlers.actions();
-    if (this.child instanceof InternalInstance) {
+    if (isNestedInstance(this.child)) {
       yield* this.child.generateActions();
     }
   }
@@ -394,7 +414,7 @@ class InternalInstance {
     return Array.from(this.generateActions());
   }
 
-  private async *valuePromises(): AsyncGenerator<
+  async *valuePromises(): AsyncGenerator<
     Record<string, any>,
     void,
     undefined
@@ -402,7 +422,7 @@ class InternalInstance {
     if (this.resolved !== null) {
       yield await this.resolved;
     }
-    if (this.child instanceof InternalInstance) {
+    if (isNestedInstance(this.child)) {
       yield* this.child.valuePromises();
     }
   }
@@ -428,7 +448,7 @@ class InternalInstance {
       yield [key, events];
     }
 
-    if (this.child instanceof InternalInstance) {
+    if (isNestedInstance(this.child)) {
       yield* this.child.allAccumulations();
     }
   }
@@ -552,8 +572,8 @@ class InternalInstance {
       return;
     }
     if (
-      this.child instanceof InternalInstance &&
-      this.child.definition === stateDefinition
+      isNestedInstance(this.child) &&
+      this.child.matchesDefinition(stateDefinition)
     ) {
       return;
     }
@@ -571,6 +591,20 @@ class InternalInstance {
     childInstance.didEnter();
   }
 
+  nestedTransition(stateDefinitions: ReadonlyArray<StateDefinition>): boolean {
+    let receiver: InternalInstance = this;
+    for (const nestedTarget of stateDefinitions) {
+      receiver.transitionTo(nestedTarget);
+      if (receiver.child instanceof InternalInstance) {
+        receiver = receiver.child;
+      } else {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
   processTarget(target: Target): boolean {
     if ("type" in target) {
       if (target.type === "cond") {
@@ -583,24 +617,18 @@ class InternalInstance {
           return true;
         }
       } else if (target.type === "compound") {
-        let receiver: InternalInstance = this;
         if (target.targets instanceof Map) {
           for (const [cond, checkTarget] of target.targets) {
-            const result: boolean = cond === null ? true : cond(this.callbacks.readContext);
+            // TODO: make this ignore non-null-nor-function keys for future proofing?
+            const result: boolean =
+              cond === null ? true : cond(this.callbacks.readContext);
             if (result === true) {
               this.transitionTo(checkTarget);
               return true;
             }
           }
         } else {
-          for (const nestedTarget of target.targets) {
-            receiver.transitionTo(nestedTarget);
-            if (receiver.child instanceof InternalInstance) {
-              receiver = receiver.child;
-            } else {
-              break;
-            }
-          }
+          return this.nestedTransition(target.targets);
         }
       } else if (target.type === "mapper") {
         if (this.child === null || this.child instanceof InternalInstance) {
@@ -617,7 +645,8 @@ class InternalInstance {
       }
     } else if (target instanceof Map && this.parent !== null) {
       for (const [cond, checkTarget] of target) {
-        const result: boolean = cond === null ? true : cond(this.callbacks.readContext);
+        const result: boolean =
+          cond === null ? true : cond(this.callbacks.readContext);
         if (result === true) {
           this.parent.transitionTo(checkTarget);
           return true;
@@ -805,7 +834,9 @@ export function start(
       };
     },
     get done() {
-      return instance.child !== null;
+      // TODO: this needs test coverage
+      return false;
+      // return instance.child !== null;
     },
   };
 }
