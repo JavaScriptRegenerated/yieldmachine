@@ -329,6 +329,9 @@ interface Instance {
   readonly current: PrimitiveState | Record<string, unknown>;
   receive(event: string | symbol | Event): void;
   matchesDefinition(definition: StateDefinition): boolean;
+  transform?(
+    mapper: Mapper<boolean> | Mapper<number> | Mapper<string> | Mapper<symbol>
+  ): void;
   generateActions?(): Generator<EntryAction, void, undefined>;
   valuePromises?(): AsyncGenerator<Record<string, any>, void, undefined>;
   allAccumulations?(): Generator<
@@ -345,6 +348,30 @@ function isNestedInstance(object: unknown): object is Instance {
   );
 }
 
+class PrimitiveInstance implements Instance {
+  private value: PrimitiveState;
+
+  constructor(value: PrimitiveState) {
+    this.value = value;
+  }
+
+  get current() {
+    return this.value;
+  }
+
+  receive(event: string | symbol | Event): void {}
+
+  matchesDefinition(definition: StateDefinition) {
+    return false;
+  }
+
+  transform?(
+    mapper: Mapper<boolean> | Mapper<number> | Mapper<string> | Mapper<symbol>
+  ) {
+    this.value = (mapper as Mapper<typeof this.value>).transform(this.value);
+  }
+}
+
 class GeneratorInstance implements Instance {
   private definition:
     | (() => StateDefinition)
@@ -357,7 +384,7 @@ class GeneratorInstance implements Instance {
   private accumulations: Map<symbol | string, Array<symbol | string | Event>> =
     new Map();
   private aborter = new AbortController();
-  private child: null | PrimitiveState | Instance = null;
+  private child: null | Instance = null;
 
   constructor(
     parent: null | GeneratorInstance,
@@ -398,8 +425,6 @@ class GeneratorInstance implements Instance {
   get current(): PrimitiveState | Record<string, unknown> {
     if (this.child === null) {
       return this.definition.name;
-    } else if (isPrimitiveState(this.child)) {
-      return { [this.definition.name]: this.child };
     } else {
       // return [[this.definition.name], this.child.current];
       return { [this.definition.name]: this.child.current };
@@ -528,10 +553,9 @@ class GeneratorInstance implements Instance {
     }
 
     if (isPrimitiveState(initialStateDefinition)) {
-      this.child = initialStateDefinition;
+      this.child = new PrimitiveInstance(initialStateDefinition);
     } else if (initialStateDefinition instanceof Map) {
       for (const [cond, checkTarget] of initialStateDefinition) {
-        // const result = typeof cond === "boolean" ? cond : cond(this.callbacks.readContext);
         const result: boolean = cond === null ? true : cond();
         if (result === true) {
           this.transitionTo(checkTarget);
@@ -630,16 +654,14 @@ class GeneratorInstance implements Instance {
           return this.nestedTransition(target.targets);
         }
       } else if (target.type === "mapper") {
-        if (this.child === null || this.child instanceof GeneratorInstance) {
-          throw Error(
-            "Can only map on primitive state of type: boolean, number, or string."
-          );
+        if (!isNestedInstance(this.child) || this.child.transform == null) {
+            throw Error(
+              "Can only map on primitive state of type: boolean, number, or string."
+            );
         }
 
         this.willMutate();
-        this.child = (target as Mapper<typeof this.child>).transform(
-          this.child
-        );
+        this.child.transform(target);
         this.didMutate();
       }
     } else if (target instanceof Map && this.parent !== null) {
