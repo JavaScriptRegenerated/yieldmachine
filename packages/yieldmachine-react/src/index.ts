@@ -1,63 +1,38 @@
-import { useReducer, useEffect, useRef, useSyncExternalStore } from "react"
-import { start, MachineInstance } from "yieldmachine"
-
-function useAbortSignal() {
-  const [controller, dispatch] = useReducer(
-    (controller: AbortController | null, create: boolean) => {
-      if (create) {
-        if (controller !== null && !controller.signal.aborted) {
-          return controller;
-        }
-        return new AbortController();
-      } else {
-        controller?.abort();
-        return controller;
-      }
-    },
-    null,
-    () => new AbortController()
-  );
-
-  useEffect(() => {
-    // console.log('send create');
-    dispatch(true);
-    return () => {
-      console.log("send abort");
-      dispatch(false);
-    };
-  }, [dispatch]);
-
-  return controller?.signal;
-}
+import { useEffect, useMemo, useSyncExternalStore } from "react"
+import { start } from "yieldmachine"
 
 export function useMachine(machineDefinition: Parameters<typeof start>[0]) {
-  const abortSignal = useAbortSignal();
-  const machineRef = useRef<MachineInstance | null>(null);
-  if (machineRef.current === null) {
-    const machine = start(machineDefinition, { signal: abortSignal });
-    machineRef.current = machine;
-  }
+  const instance = useMemo(() => {
+    const aborter = new AbortController();
+    // TODO: only start the machine when we need to.
+    // For server-rendering, we should interpret the machine to get the initial state so we don’t have a lingering AbortController.
+    const machine = start(machineDefinition, { signal: aborter.signal });
+    return {
+      aborter, machine, dispatch: machine.next.bind(machine)
+    };
+  }, []);
+  useEffect(() => {
+    return () => {
+      instance.aborter.abort();
+    };
+  });
 
   const state = useSyncExternalStore(
     (callback: () => void) => {
-      machineRef.current?.eventTarget.addEventListener(
+      instance.machine.eventTarget.addEventListener(
         "StateChanged",
         callback
       );
       return () => {
-        machineRef.current?.eventTarget.removeEventListener(
+        instance.machine.eventTarget.removeEventListener(
           "StateChanged",
           callback
         );
       };
     },
-    () => machineRef.current?.value.state,
-    () => machineRef.current?.value.state
+    () => instance.machine.value.state,
+    () => instance.machine.value.state
   );
 
-  function dispatch(event: string | symbol) {
-    machineRef.current?.next(event);
-  }
-
-  return Object.freeze([state, dispatch] as const);
+  return Object.freeze([state, instance.dispatch] as const);
 }
