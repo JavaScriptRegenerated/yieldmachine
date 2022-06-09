@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useSyncExternalStore } from "react"
 import { start } from "yieldmachine"
 
+// TODO: should this be renamed to useStartMachine
 export function useMachine(machineDefinition: Parameters<typeof start>[0]) {
   const instance = useMemo(() => {
     const aborter = new AbortController();
