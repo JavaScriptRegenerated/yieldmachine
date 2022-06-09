@@ -386,6 +386,26 @@ machine.value; // { state: "aborted", change: 1 }
 
 ----
 
+## Minifiers
+
+If you use a minifier then your function name will be changed to a short name like `d` instead of `On`. To get around this, you can specify your states as methods (which are not usually minified) like so:
+
+```js
+function SwitchMachine() {
+  const { On, Off } = {
+    *Off() {
+      yield on("FLICK", On);
+    },
+    *On() {
+      yield on("FLICK", Off);
+    }
+  };
+  return Off;
+}
+```
+
+----
+
 ## TODO
 
 - [ ] Parallel states by returning object for initial state
