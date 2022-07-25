@@ -528,8 +528,8 @@ class GeneratorInstance implements Instance {
           return;
         }
       }
-    } else {
-      this.transitionTo(initialStateDefinition as StateDefinition | undefined);
+    } else if (typeof initialStateDefinition === "function") {
+      this.transitionTo(initialStateDefinition as StateDefinition);
     }
   }
 
@@ -555,10 +555,8 @@ class GeneratorInstance implements Instance {
     this.globalHandlers.reset();
   }
 
-  transitionTo(stateDefinition?: StateDefinition) {
-    if (stateDefinition === undefined) {
-      return;
-    }
+  transitionTo(stateDefinition: StateDefinition) {
+    // Bail if we are already in this state.
     if (
       isNestedInstance(this.child) &&
       this.child.matchesDefinition(stateDefinition)
