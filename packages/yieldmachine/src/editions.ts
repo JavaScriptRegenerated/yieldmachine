@@ -10,7 +10,7 @@ export interface Edition<Value> {
 
 function render<Value>(data: Edition<Value>): void {}
 
-export function compose<A, B>(
+export function combine<A, B>(
   a: Edition<A>,
   b: Edition<B>
 ): Edition<{ [k: symbol]: A | B }> {
@@ -28,7 +28,7 @@ export function compose<A, B>(
 export function newEdition<Value>(
   value: Value,
   revision = 0,
-  key: symbol = Symbol(),
+  key: symbol = Symbol()
 ): Edition<Value> {
   return {
     [Revision]: revision,
@@ -42,11 +42,10 @@ export function newEditionList<Value>(
   key: symbol = Symbol(),
   revision = 0
 ): Edition<Iterable<Edition<Value>>> {
-
   return {
     [Revision]: revision,
     key,
-    value: Array.from(items, item => newEdition(item, revision)),
+    value: Array.from(items, (item) => newEdition(item, revision)),
   };
 }
 
@@ -98,4 +97,15 @@ export function replace<Element>(
       }
     },
   }));
+}
+
+export interface EditionReference<Value> {
+  readonly defaultValue: Value;
+}
+
+export interface EditionListReference<Element> {
+  readonly defaultValue: Iterable<Element>;
+  append(element: Element, elementKey?: symbol): void;
+  replace(elementKey: symbol, transform: (element: Element) => Element): void;
+  toArray(): ReadonlyArray<Edition<Element>>;
 }

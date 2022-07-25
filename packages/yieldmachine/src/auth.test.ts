@@ -8,11 +8,11 @@ function* Session({ onSignOut }: { onSignOut: () => void }) {
 
   function* SignedOut() {
     yield entry(onSignOut);
-    yield on("DID_SIGN_IN", checkingValid);
+    yield on("didSignIn", checkingValid);
   }
   function* SignedIn() {
-    yield on("REFRESH", checkingValid);
-    yield on("SIGN_OUT", SignedOut);
+    yield on("refresh", checkingValid);
+    yield on("signOut", SignedOut);
   }
 
   return checkingValid;
@@ -31,7 +31,7 @@ describe("Session", () => {
     const aborter = new AbortController();
     const onSignOut = jest.fn();
     const instance = start(Session.bind(null, { onSignOut }), { signal: aborter.signal });
-    instance.next('DID_SIGN_IN');
+    instance.next('didSignIn');
     expect(onSignOut).toHaveBeenCalledTimes(1);
     expect(instance.value.state).toBe("SignedOut");
     aborter.abort();
