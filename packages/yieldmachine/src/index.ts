@@ -19,7 +19,12 @@ export interface ExitAction {
 export type ReadContextCallback = (contextName: string | symbol) => unknown;
 
 export type PrimitiveState = boolean | number | string | symbol;
-export type StateDefinition = () => Generator<Yielded, any, unknown>;
+export type StateDefinition =
+  | (() => Generator<Yielded, any, unknown>)
+  | {
+      readonly name: string;
+      apply(): Generator<Yielded, any, unknown>;
+    };
 export type ChoiceDefinition = Map<
   ((readContext: ReadContextCallback) => boolean) | null,
   StateDefinition
@@ -340,6 +345,7 @@ class PrimitiveInstance implements Instance {
 
 class GeneratorInstance implements Instance {
   private definition:
+    | StateDefinition
     | (() => StateDefinition)
     | (() => Generator<Yielded, StateDefinition, never>)
     | (() => Generator<Yielded, PrimitiveState, never>)
@@ -355,6 +361,7 @@ class GeneratorInstance implements Instance {
   constructor(
     parent: null | GeneratorInstance,
     machineDefinition:
+      | StateDefinition
       | (() => StateDefinition)
       | (() => Generator<Yielded, StateDefinition, never>)
       | (() => Generator<Yielded, PrimitiveState, never>)
@@ -455,6 +462,7 @@ class GeneratorInstance implements Instance {
 
   consume(
     stateGenerator:
+      | StateDefinition
       | (() => StateDefinition)
       | (() => Generator<Yielded, StateDefinition, never>)
       | (() => Generator<Yielded, PrimitiveState, never>)
@@ -523,7 +531,8 @@ class GeneratorInstance implements Instance {
       this.child = new PrimitiveInstance(initialStateDefinition);
     } else if (initialStateDefinition instanceof Map) {
       for (const [cond, checkTarget] of initialStateDefinition) {
-        const result: boolean = cond === null ? true : cond(this.callbacks.readContext);
+        const result: boolean =
+          cond === null ? true : cond(this.callbacks.readContext);
         if (result === true) {
           this.transitionTo(checkTarget);
           return;
@@ -619,9 +628,9 @@ class GeneratorInstance implements Instance {
         }
       } else if (target.type === "mapper") {
         if (!isNestedInstance(this.child) || this.child.transform == null) {
-            throw Error(
-              "Can only map on primitive state of type: boolean, number, or string."
-            );
+          throw Error(
+            "Can only map on primitive state of type: boolean, number, or string."
+          );
         }
 
         this.willMutate();

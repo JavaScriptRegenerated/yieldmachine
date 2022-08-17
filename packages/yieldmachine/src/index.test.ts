@@ -195,12 +195,12 @@ describe("Switch with states as classes", () => {
   function Switch() {
     class Off extends StateDefinition {
       *body() {
-        yield on("flick", On as any);
+        yield on("flick", On);
       }
     }
     class On extends StateDefinition {
       *body() {
-        yield on("flick", Off as any);
+        yield on("flick", Off);
       }
     }
 
