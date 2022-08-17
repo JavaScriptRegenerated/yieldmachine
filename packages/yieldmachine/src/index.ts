@@ -471,7 +471,8 @@ class GeneratorInstance implements Instance {
       );
     }
 
-    const initialReturn = stateGenerator();
+    // const initialReturn = stateGenerator();
+    const initialReturn = (stateGenerator as Function).apply(null);
     // Generator function
     if ((initialReturn as any)[Symbol.iterator]) {
       const iterator: Iterator<any, unknown, unknown> = (initialReturn as any)[
