@@ -27,16 +27,170 @@ function useEach(work: () => () => void) {
   });
 }
 
-const fetch = jest.fn();
-beforeEach(fetch.mockClear);
+describe("Switch", () => {
+  function Switch() {
+    function* Off() {
+      yield on("flick", On);
+    }
+    function* On() {
+      yield on("flick", Off);
+    }
 
-const finishedLoading = jest.fn();
-beforeEach(finishedLoading.mockClear);
+    return Off;
+  }
 
-const succeeded = jest.fn();
-beforeEach(succeeded.mockClear);
+  it("changes state and change count", () => {
+    const machine = start(Switch);
+    expect(machine).toBeDefined();
+    expect(machine.current).toEqual("Off");
+
+    machine.next("flick");
+    expect(machine.current).toEqual("On");
+    expect(machine.changeCount).toEqual(1);
+
+    machine.next("flick");
+    expect(machine.current).toEqual("Off");
+    expect(machine.changeCount).toEqual(2);
+  });
+
+  it("emits events to signal", () => {
+    const machine = start(Switch);
+    expect(machine).toBeDefined();
+    expect(machine.eventTarget).toBeInstanceOf(EventTarget);
+
+    const eventListener = jest.fn();
+    machine.eventTarget.addEventListener("StateChanged", eventListener);
+
+    machine.next("flick");
+    expect(machine.current).toEqual("On");
+    expect(eventListener).toHaveBeenCalledTimes(1);
+    expect(eventListener).toHaveBeenLastCalledWith(
+      expect.objectContaining({ type: "StateChanged", value: "On" })
+    );
+
+    machine.next("flick");
+    expect(machine.current).toEqual("Off");
+    expect(eventListener).toHaveBeenCalledTimes(2);
+    expect(eventListener).toHaveBeenLastCalledWith(
+      expect.objectContaining({ type: "StateChanged", value: "Off" })
+    );
+
+    machine.eventTarget.removeEventListener("StateChanged", eventListener);
+
+    machine.next("flick");
+    expect(machine.current).toEqual("On");
+    expect(eventListener).toHaveBeenCalledTimes(2);
+  });
+
+  it("can produce a promise that resolves when state changes to ON", async () => {
+    const machine = start(Switch);
+
+    const whenPromiseResolves = jest.fn();
+    const aborter = new AbortController();
+    const onPromise = onceStateChangesTo(machine, "On", aborter.signal);
+    onPromise.then(whenPromiseResolves);
+
+    await null;
+    expect(whenPromiseResolves).toHaveBeenCalledTimes(0);
+
+    machine.next("flick");
+    await null;
+    expect(whenPromiseResolves).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("Switch with symbol messages", () => {
+  const flick = Symbol("flick");
+
+  function Switch() {
+    function* Off() {
+      yield on(flick, On);
+    }
+    function* On() {
+      yield on(flick, Off);
+    }
+
+    return Off;
+  }
+
+  test("sending events", () => {
+    const machine = start(Switch);
+    expect(machine).toBeDefined();
+    expect(machine.current).toEqual("Off");
+
+    machine.next(flick);
+    expect(machine.current).toEqual("On");
+    expect(machine.changeCount).toEqual(1);
+
+    machine.next(flick);
+    expect(machine.current).toEqual("Off");
+    expect(machine.changeCount).toEqual(2);
+
+    machine.next(Symbol("will be ignored"));
+    expect(machine.current).toEqual("Off");
+    expect(machine.changeCount).toEqual(2);
+  });
+});
+
+describe("Switch as class", () => {
+  class Switch {
+    onCount: number;
+
+    constructor() {
+      this.Off = this.Off.bind(this);
+      this.On = this.On.bind(this);
+
+      // Set up any internal state needed.
+      this.onCount = 0;
+
+      // return this.Off as any;
+    }
+
+    get initial() {
+      return this.Off;
+    }
+
+    *Off() {
+      yield on("FLICK", this.On);
+    }
+    *On() {
+      this.onCount++;
+      yield on("FLICK", this.Off);
+    }
+  }
+
+  test("sending events", () => {
+    const instance = new Switch();
+    const machine = start(() => instance.initial);
+    expect(machine).toBeDefined();
+    expect(machine.current).toEqual("bound Off");
+    expect(instance.onCount).toEqual(0);
+
+    machine.next("FLICK");
+    expect(machine.current).toEqual("bound On");
+    expect(machine.changeCount).toEqual(1);
+    expect(instance.onCount).toEqual(1);
+
+    machine.next("FLICK");
+    expect(machine.current).toEqual("bound Off");
+    expect(machine.changeCount).toEqual(2);
+
+    machine.next(Symbol("will be ignored"));
+    expect(machine.current).toEqual("bound Off");
+    expect(machine.changeCount).toEqual(2);
+  });
+});
 
 describe("Machine with entry and exit actions", () => {
+  const fetch = jest.fn();
+  beforeEach(fetch.mockClear);
+
+  const finishedLoading = jest.fn();
+  beforeEach(finishedLoading.mockClear);
+
+  const succeeded = jest.fn();
+  beforeEach(succeeded.mockClear);
+
   const someURL = new URL("https://example.org/");
   function fetchData() {
     return fetch(someURL.toString());
@@ -180,6 +334,15 @@ describe("Machine with entry and exit actions", () => {
 });
 
 describe("Fetch with abort signal", () => {
+  const fetch = jest.fn();
+  beforeEach(fetch.mockClear);
+
+  const finishedLoading = jest.fn();
+  beforeEach(finishedLoading.mockClear);
+
+  const succeeded = jest.fn();
+  beforeEach(succeeded.mockClear);
+
   const someURL = new URL("https://example.org/");
   function fetchData({ signal }: { signal: AbortSignal }) {
     return fetch(someURL.toString(), { signal });
@@ -455,160 +618,6 @@ describe("Hierarchical Traffic Lights Machine", () => {
   });
 });
 
-describe("Switch", () => {
-  function Switch() {
-    function* Off() {
-      yield on("flick", On);
-    }
-    function* On() {
-      yield on("flick", Off);
-    }
-
-    return Off;
-  }
-
-  it("changes state and change count", () => {
-    const machine = start(Switch);
-    expect(machine).toBeDefined();
-    expect(machine.current).toEqual("Off");
-
-    machine.next("flick");
-    expect(machine.current).toEqual("On");
-    expect(machine.changeCount).toEqual(1);
-
-    machine.next("flick");
-    expect(machine.current).toEqual("Off");
-    expect(machine.changeCount).toEqual(2);
-  });
-
-  it("emits events to signal", () => {
-    const machine = start(Switch);
-    expect(machine).toBeDefined();
-    expect(machine.eventTarget).toBeInstanceOf(EventTarget);
-
-    const eventListener = jest.fn();
-    machine.eventTarget.addEventListener("StateChanged", eventListener);
-
-    machine.next("flick");
-    expect(machine.current).toEqual("On");
-    expect(eventListener).toHaveBeenCalledTimes(1);
-    expect(eventListener).toHaveBeenLastCalledWith(
-      expect.objectContaining({ type: "StateChanged", value: "On" })
-    );
-
-    machine.next("flick");
-    expect(machine.current).toEqual("Off");
-    expect(eventListener).toHaveBeenCalledTimes(2);
-    expect(eventListener).toHaveBeenLastCalledWith(
-      expect.objectContaining({ type: "StateChanged", value: "Off" })
-    );
-
-    machine.eventTarget.removeEventListener("StateChanged", eventListener);
-
-    machine.next("flick");
-    expect(machine.current).toEqual("On");
-    expect(eventListener).toHaveBeenCalledTimes(2);
-  });
-
-  it("can produce a promise that resolves when state changes to ON", async () => {
-    const machine = start(Switch);
-
-    const whenPromiseResolves = jest.fn();
-    const aborter = new AbortController();
-    const onPromise = onceStateChangesTo(machine, "On", aborter.signal);
-    onPromise.then(whenPromiseResolves);
-
-    await null;
-    expect(whenPromiseResolves).toHaveBeenCalledTimes(0);
-
-    machine.next("flick");
-    await null;
-    expect(whenPromiseResolves).toHaveBeenCalledTimes(1);
-  });
-});
-
-describe("Switch with symbol messages", () => {
-  const FLICK = Symbol("FLICK");
-
-  function Switch() {
-    function* OFF() {
-      yield on(FLICK, ON);
-    }
-    function* ON() {
-      yield on(FLICK, OFF);
-    }
-
-    return OFF;
-  }
-
-  test("sending events", () => {
-    const machine = start(Switch);
-    expect(machine).toBeDefined();
-    expect(machine.current).toEqual("OFF");
-
-    machine.next(FLICK);
-    expect(machine.current).toEqual("ON");
-    expect(machine.changeCount).toEqual(1);
-
-    machine.next(FLICK);
-    expect(machine.current).toEqual("OFF");
-    expect(machine.changeCount).toEqual(2);
-
-    machine.next(Symbol("will be ignored"));
-    expect(machine.current).toEqual("OFF");
-    expect(machine.changeCount).toEqual(2);
-  });
-});
-
-describe("Switch as class", () => {
-  class Switch {
-    onCount: number;
-
-    constructor() {
-      this.Off = this.Off.bind(this);
-      this.On = this.On.bind(this);
-
-      // Set up any internal state needed.
-      this.onCount = 0;
-
-      // return this.Off as any;
-    }
-
-    get initial() {
-      return this.Off;
-    }
-
-    *Off() {
-      yield on("FLICK", this.On);
-    }
-    *On() {
-      this.onCount++;
-      yield on("FLICK", this.Off);
-    }
-  }
-
-  test("sending events", () => {
-    const instance = new Switch();
-    const machine = start(() => instance.initial);
-    expect(machine).toBeDefined();
-    expect(machine.current).toEqual("bound Off");
-    expect(instance.onCount).toEqual(0);
-
-    machine.next("FLICK");
-    expect(machine.current).toEqual("bound On");
-    expect(machine.changeCount).toEqual(1);
-    expect(instance.onCount).toEqual(1);
-
-    machine.next("FLICK");
-    expect(machine.current).toEqual("bound Off");
-    expect(machine.changeCount).toEqual(2);
-
-    machine.next(Symbol("will be ignored"));
-    expect(machine.current).toEqual("bound Off");
-    expect(machine.changeCount).toEqual(2);
-  });
-});
-
 // TODO: port to Map?
 describe("Wrapping navigator online as a state machine", () => {
   function* OfflineStatus() {
@@ -688,7 +697,7 @@ describe("Wrapping AbortController as a state machine", () => {
 
     return new Map([
       [() => controller.signal.aborted, Aborted as any],
-      [null, Initial]
+      [null, Initial],
     ]);
   }
 
