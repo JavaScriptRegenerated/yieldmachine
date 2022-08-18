@@ -174,7 +174,7 @@ interface MachineValue {
 }
 
 export interface MachineInstance
-  extends Iterator<MachineValue, void, string | symbol> {
+  extends Iterator<MachineValue, void, string | symbol | { type: string }> {
   readonly value: MachineValue;
   readonly changeCount: number;
   // TODO: remove `current`
@@ -183,7 +183,7 @@ export interface MachineInstance
   readonly accumulations: Map<symbol | string, Array<symbol | string | Event>>;
   readonly done: boolean;
   readonly eventTarget: EventTarget;
-  next(arg: string | symbol): IteratorResult<MachineValue>;
+  next(arg: string | symbol | { type: string }): IteratorResult<MachineValue>;
   // abort(): void;
 }
 
@@ -820,7 +820,7 @@ export function start(
     get accumulations() {
       return new Map(instance.allAccumulations());
     },
-    next(event: string | symbol) {
+    next(event: string | symbol | Event) {
       instance.receive(event);
       return {
         value: getValue(),

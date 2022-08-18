@@ -13,11 +13,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import "@testing-library/jest-dom";
 import { render, screen } from "@testing-library/react";
 import user from "@testing-library/user-event";
-import {
-  on,
-  start,
-  MachineInstance
-} from "./index";
+import { on, start, MachineInstance } from "./index";
 
 describe("simple button", () => {
   function ClickMachine() {
@@ -61,6 +57,11 @@ describe("simple button", () => {
     return controller?.signal;
   }
 
+  let subscribeCalls = 0;
+  beforeEach(() => {
+    subscribeCalls = 0;
+  });
+
   function useMachine(machineDefinition: Parameters<typeof start>[0]) {
     const abortSignal = useAbortSignal();
     const machineRef = useRef<MachineInstance | null>(null);
@@ -71,6 +72,7 @@ describe("simple button", () => {
 
     const state = useSyncExternalStore(
       (callback: () => void) => {
+        subscribeCalls++;
         machineRef.current?.eventTarget.addEventListener(
           "StateChanged",
           callback
@@ -82,12 +84,12 @@ describe("simple button", () => {
           );
         };
       },
-      () => machineRef.current?.value.state,
-      () => machineRef.current?.value.state
+      () => machineRef.current!.value,
+      () => machineRef.current!.value
     );
 
-    function dispatch(event: string | symbol) {
-      machineRef.current?.next(event);
+    function dispatch(event: string | symbol | { type: string }) {
+      machineRef.current!.next(event);
     }
 
     return Object.freeze([state, dispatch] as const);
@@ -98,14 +100,8 @@ describe("simple button", () => {
 
     return (
       <>
-        <button
-          onClick={() => {
-            dispatch("click");
-          }}
-        >
-          Click me
-        </button>
-        <output>{JSON.stringify(state)}</output>
+        <button onClick={dispatch}>Click me</button>
+        <output>{JSON.stringify(state.state)}</output>
       </>
     );
   }
@@ -129,6 +125,7 @@ describe("simple button", () => {
     await user.click(queries.getByRole("button", { name: "Click me" }));
     expect(queries.getByRole("status")).toHaveTextContent("Once");
     // queries.unmount();
+    expect(subscribeCalls).toBeGreaterThanOrEqual(1);
   });
 
   it("allows multiple events", async () => {
@@ -142,6 +139,7 @@ describe("simple button", () => {
     await user.click(button);
     expect(queries.getByRole("status")).toHaveTextContent("Twice");
     // queries.unmount();
+    expect(subscribeCalls).toBeGreaterThanOrEqual(1);
   });
 
   it("works with server rendering", () => {
@@ -151,5 +149,6 @@ describe("simple button", () => {
       </StrictMode>
     );
     expect(screen.getByRole("status")).toHaveTextContent("Initial");
+    expect(subscribeCalls).toEqual(0);
   });
 });

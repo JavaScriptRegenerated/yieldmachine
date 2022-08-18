@@ -1089,7 +1089,7 @@ describe("Hovering machine", () => {
   });
 });
 
-describe("Key shortcut click highlighting too many event listeners bug", () => {
+describe("Specific keyboard shortcut handler", () => {
   function KeyShortcutListener(el: HTMLElement) {
     function isEscapeKey(readContext: ReadContextCallback) {
       const event = readContext("event");
@@ -1122,9 +1122,9 @@ describe("Key shortcut click highlighting too many event listeners bug", () => {
   }
 
   it("listens when keys are pressed", () => {
-    // FIXME: there’s lots of event listeners being created!
     const aborter = new AbortController();
     const input = document.createElement("input");
+    const addEventListenerSpy = jest.spyOn(input, "addEventListener");
     const machine = start(KeyShortcutListener.bind(null, input), {
       signal: aborter.signal,
     });
@@ -1132,12 +1132,14 @@ describe("Key shortcut click highlighting too many event listeners bug", () => {
       state: "Closed",
       change: 0,
     });
+    expect(addEventListenerSpy).toHaveBeenCalledTimes(1);
 
     input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
     expect(machine.value).toMatchObject({
       state: "Open",
       change: 1,
     });
+    expect(addEventListenerSpy).toHaveBeenCalledTimes(2);
 
     input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
     expect(machine.value).toMatchObject({
@@ -1150,18 +1152,21 @@ describe("Key shortcut click highlighting too many event listeners bug", () => {
       state: "Open",
       change: 1,
     });
+    expect(addEventListenerSpy).toHaveBeenCalledTimes(2);
 
     input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
     expect(machine.value).toMatchObject({
       state: "Closed",
       change: 2,
     });
+    expect(addEventListenerSpy).toHaveBeenCalledTimes(3);
 
     input.dispatchEvent(new KeyboardEvent("keydown", { key: "a" }));
     expect(machine.value).toMatchObject({
       state: "Closed",
       change: 2,
     });
+    expect(addEventListenerSpy).toHaveBeenCalledTimes(3);
 
     aborter.abort();
   });
