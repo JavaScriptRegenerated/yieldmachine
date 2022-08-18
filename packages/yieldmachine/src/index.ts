@@ -700,6 +700,81 @@ class MachineStateChangedEvent extends BaseEvent {
   }
 }
 
+export function* iterate(
+  machine:
+    | (() => StateDefinition)
+    | (() => Generator<Yielded, StateDefinition, never>)
+    | (() => Generator<Yielded, PrimitiveState, never>)
+    | (() => Generator<Yielded, ChoiceDefinition, never>)
+): Generator<
+  { state: unknown; change: number },
+  { state: unknown; change: number },
+  string | symbol
+> {
+  let _changeCount = 0;
+
+  function consume(machine: unknown) {
+    if (typeof machine !== "function") {
+      throw Error(
+        `Expected state generator to be a function, got: ${typeof machine}`
+      );
+    }
+
+    const initialReturn = (machine as Function).apply(null);
+    // Generator function
+    if ((initialReturn as any)[Symbol.iterator]) {
+      const iterator: Iterator<any, unknown, unknown> = (initialReturn as any)[
+        Symbol.iterator
+      ]();
+      let reply: unknown = undefined;
+      while (true) {
+        const item = iterator.next(reply);
+        if (item.done) {
+          return item.value as unknown;
+        }
+      }
+    } else if (typeof initialReturn === "function") {
+      return initialReturn as unknown;
+    }
+  }
+
+  let stateDefinition = consume(machine);
+
+  eventLoop: while (true) {
+    if (typeof stateDefinition === "function") {
+      const receivedEvent = yield {
+        state: stateDefinition.name,
+        change: _changeCount,
+      };
+      const generator = stateDefinition();
+      let reply: unknown = undefined;
+      messages: while (true) {
+        const { value, done } = generator.next(reply) as IteratorResult<
+          Yielded,
+          undefined
+        >;
+        if (done) {
+          break messages;
+        }
+
+        if (value) {
+          if (typeof value === "object" && "type" in value) {
+            if (value.type === "on") {
+              if (value.on === receivedEvent) {
+                stateDefinition = value.target;
+                _changeCount++;
+                continue eventLoop;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return { state: null, change: 0 };
+}
+
 export function start(
   machine:
     | (() => StateDefinition)
