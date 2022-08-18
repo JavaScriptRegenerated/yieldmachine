@@ -6,11 +6,11 @@ describe("toggle syncing from external state", () => {
     function* Closed() {}
     function* Open() {}
 
-    const checkingOpen = new Map([
+    const checkingOpen = choice(new Map([
       [() => openValue, Open],
       [null, Closed],
-    ]);
-    yield on("toggle", choice(checkingOpen));
+    ]));
+    yield on("toggle", checkingOpen);
 
     return checkingOpen;
   }

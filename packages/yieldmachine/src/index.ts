@@ -25,7 +25,7 @@ export type StateDefinition =
       readonly name: string;
       apply(): Generator<Yielded, any, unknown>;
     };
-export type ChoiceDefinition = Map<
+export type ChoiceMap = Map<
   ((readContext: ReadContextCallback) => boolean) | null,
   StateDefinition
 >;
@@ -37,7 +37,11 @@ export interface Cond {
 }
 export interface Compound {
   type: "compound";
-  targets: Array<StateDefinition> | ChoiceDefinition;
+  targets: Array<StateDefinition> | ChoiceMap;
+}
+export interface ChoiceDefinition {
+  type: "choice";
+  choice: ChoiceMap;
 }
 export interface Mapper<State> {
   type: "mapper";
@@ -47,11 +51,12 @@ export type Target =
   | StateDefinition
   | Cond
   | Compound
+  | ChoiceDefinition
   | Mapper<boolean>
   | Mapper<number>
   | Mapper<string>
   | Mapper<symbol>
-  | ChoiceDefinition;
+  | ChoiceMap;
 export interface On {
   type: "on";
   on: string | symbol;
@@ -151,8 +156,8 @@ export function compound(...targets: Array<StateDefinition>): Compound {
   return { type: "compound", targets };
 }
 
-export function choice(choice: ChoiceDefinition): Compound {
-  return { type: "compound", targets: choice };
+export function choice(choice: ChoiceMap): ChoiceDefinition {
+  return { type: "choice", choice };
 }
 
 export function accumulate(
@@ -349,7 +354,7 @@ class GeneratorInstance implements Instance {
     | (() => StateDefinition)
     | (() => Generator<Yielded, StateDefinition, never>)
     | (() => Generator<Yielded, PrimitiveState, never>)
-    | (() => Generator<Yielded, ChoiceDefinition, never>);
+    | (() => Generator<Yielded, ChoiceMap, never>);
   private parent: null | GeneratorInstance;
   private globalHandlers = new Handlers();
   private resolved = null as Promise<Record<string, any>> | null;
@@ -365,7 +370,7 @@ class GeneratorInstance implements Instance {
       | (() => StateDefinition)
       | (() => Generator<Yielded, StateDefinition, never>)
       | (() => Generator<Yielded, PrimitiveState, never>)
-      | (() => Generator<Yielded, ChoiceDefinition, never>),
+      | (() => Generator<Yielded, ChoiceMap, never>),
     private signal: AbortSignal,
     private callbacks: {
       readonly changeCount: number;
@@ -466,7 +471,7 @@ class GeneratorInstance implements Instance {
       | (() => StateDefinition)
       | (() => Generator<Yielded, StateDefinition, never>)
       | (() => Generator<Yielded, PrimitiveState, never>)
-      | (() => Generator<Yielded, ChoiceDefinition, never>)
+      | (() => Generator<Yielded, ChoiceMap, never>)
   ) {
     // this.cleanup();
 
@@ -529,6 +534,19 @@ class GeneratorInstance implements Instance {
 
     if (isPrimitiveState(initialStateDefinition)) {
       this.child = new PrimitiveInstance(initialStateDefinition);
+    } else if (
+      typeof initialStateDefinition === "object" &&
+      "type" in initialStateDefinition &&
+      initialStateDefinition.type === "choice"
+    ) {
+      for (const [cond, checkTarget] of initialStateDefinition.choice) {
+        const result: boolean =
+          cond === null ? true : cond(this.callbacks.readContext);
+        if (result === true) {
+          this.transitionTo(checkTarget);
+          return;
+        }
+      }
     } else if (initialStateDefinition instanceof Map) {
       for (const [cond, checkTarget] of initialStateDefinition) {
         const result: boolean =
@@ -611,6 +629,16 @@ class GeneratorInstance implements Instance {
         if (result === true && this.parent !== null) {
           this.parent.transitionTo(target.target);
           return true;
+        }
+      } else if (target.type === "choice") {
+        for (const [cond, checkTarget] of target.choice) {
+          // TODO: make this ignore non-null-nor-function keys for future proofing?
+          const result: boolean =
+            cond === null ? true : cond(this.callbacks.readContext);
+          if (result === true) {
+            this.transitionTo(checkTarget);
+            return true;
+          }
         }
       } else if (target.type === "compound") {
         if (target.targets instanceof Map) {
@@ -705,7 +733,7 @@ export function* iterate(
     | (() => StateDefinition)
     | (() => Generator<Yielded, StateDefinition, never>)
     | (() => Generator<Yielded, PrimitiveState, never>)
-    | (() => Generator<Yielded, ChoiceDefinition, never>)
+    | (() => Generator<Yielded, ChoiceMap, never>)
 ): Generator<
   { state: unknown; change: number },
   { state: unknown; change: number },
@@ -780,7 +808,8 @@ export function start(
     | (() => StateDefinition)
     | (() => Generator<Yielded, StateDefinition, never>)
     | (() => Generator<Yielded, PrimitiveState, never>)
-    | (() => Generator<Yielded, ChoiceDefinition, never>),
+    | (() => Generator<Yielded, ChoiceDefinition, never>)
+    | (() => Generator<Yielded, ChoiceMap, never>),
   options: { signal?: AbortSignal } = {}
 ): MachineInstance {
   let _changeCount = -1;
