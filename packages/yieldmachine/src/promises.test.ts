@@ -56,12 +56,10 @@ describe("Machine with entry and exit actions", () => {
         state: "idle",
         actions: [],
       });
-      expect(loader.value).toBe(loader.value);
       expect(loader.changeCount).toEqual(0);
       expect(loader.current).toEqual("idle");
 
       const valueA = loader.value;
-
       loader.next("NOOP");
       expect(loader.current).toEqual("idle");
       expect(loader.changeCount).toEqual(0);
