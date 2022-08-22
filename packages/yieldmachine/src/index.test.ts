@@ -18,16 +18,6 @@ import {
 
 test("node version " + process.version, () => {});
 
-function useEach(work: () => () => void) {
-  let cleanup: null | (() => void) = null;
-  beforeEach(() => {
-    cleanup = work();
-  });
-  afterEach(() => {
-    cleanup?.call(null);
-  });
-}
-
 describe("Switch", () => {
   function Switch() {
     function* Off() {
@@ -367,71 +357,6 @@ describe("Hierarchical Traffic Lights Machine", () => {
     machine.next("POWER_OUTAGE");
     expect(machine.current).toEqual({ red: "blinking" });
     expect(machine.changeCount).toEqual(7);
-  });
-});
-
-// TODO: port to Map?
-describe("Wrapping navigator online as a state machine", () => {
-  function* OfflineStatus() {
-    yield listenTo(window, ["online", "offline"]);
-    yield on("online", compound(Online));
-    yield on("offline", compound(Offline));
-
-    function* Online() {}
-    function* Offline() {}
-
-    return new Map([
-      [() => navigator.onLine, Online],
-      [null, Offline],
-    ]);
-  }
-
-  describe("when online", () => {
-    useEach(() => {
-      const spy = jest.spyOn(navigator, "onLine", "get").mockReturnValue(true);
-      return () => spy.mockRestore();
-    });
-
-    it("is immediately in Online state", () => {
-      const machine = start(OfflineStatus);
-      expect(machine.current).toEqual("Online");
-      expect(machine.changeCount).toEqual(0);
-    });
-
-    it("reacts to offline & online events", () => {
-      const machine = start(OfflineStatus);
-      window.dispatchEvent(new Event("offline"));
-      expect(machine.current).toEqual("Offline");
-      expect(machine.changeCount).toEqual(1);
-
-      window.dispatchEvent(new Event("online"));
-      expect(machine.current).toEqual("Online");
-      expect(machine.changeCount).toEqual(2);
-    });
-  });
-
-  describe("when offline", () => {
-    useEach(() => {
-      const spy = jest.spyOn(navigator, "onLine", "get").mockReturnValue(false);
-      return () => spy.mockRestore();
-    });
-
-    it("is immediately in Offline state", () => {
-      const machine = start(OfflineStatus);
-      expect(machine.current).toEqual("Offline");
-      expect(machine.changeCount).toEqual(0);
-    });
-
-    it("reacts to online & offline events", () => {
-      const machine = start(OfflineStatus);
-      window.dispatchEvent(new Event("online"));
-      expect(machine.current).toEqual("Online");
-      expect(machine.changeCount).toEqual(1);
-
-      window.dispatchEvent(new Event("offline"));
-      expect(machine.current).toEqual("Offline");
-      expect(machine.changeCount).toEqual(2);
-    });
   });
 });
 

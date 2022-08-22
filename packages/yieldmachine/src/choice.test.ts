@@ -1,4 +1,18 @@
-import { choice, on, start } from "./index";
+/**
+ * @jest-environment jsdom
+ */
+
+import { choice, compound, listenTo, on, start } from "./index";
+
+function useEach(work: () => () => void) {
+  let cleanup: null | (() => void) = null;
+  beforeEach(() => {
+    cleanup = work();
+  });
+  afterEach(() => {
+    cleanup?.call(null);
+  });
+}
 
 describe("toggle syncing from external state", () => {
   let openValue = false;
@@ -108,6 +122,70 @@ describe("Form Field Machine with external validation", () => {
       formField.next("BLUR");
       expect(formField.current).toEqual("invalid");
       expect(formField.changeCount).toEqual(2);
+    });
+  });
+});
+
+describe("Wrapping navigator online as a state machine", () => {
+  function* OfflineStatus() {
+    yield listenTo(window, ["online", "offline"]);
+    yield on("online", compound(Online));
+    yield on("offline", compound(Offline));
+
+    function* Online() {}
+    function* Offline() {}
+
+    return choice(new Map([
+      [() => navigator.onLine, Online],
+      [null, Offline],
+    ]));
+  }
+
+  describe("when online", () => {
+    useEach(() => {
+      const spy = jest.spyOn(navigator, "onLine", "get").mockReturnValue(true);
+      return () => spy.mockRestore();
+    });
+
+    it("is immediately in Online state", () => {
+      const machine = start(OfflineStatus);
+      expect(machine.current).toEqual("Online");
+      expect(machine.changeCount).toEqual(0);
+    });
+
+    it("reacts to offline & online events", () => {
+      const machine = start(OfflineStatus);
+      window.dispatchEvent(new Event("offline"));
+      expect(machine.current).toEqual("Offline");
+      expect(machine.changeCount).toEqual(1);
+
+      window.dispatchEvent(new Event("online"));
+      expect(machine.current).toEqual("Online");
+      expect(machine.changeCount).toEqual(2);
+    });
+  });
+
+  describe("when offline", () => {
+    useEach(() => {
+      const spy = jest.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+      return () => spy.mockRestore();
+    });
+
+    it("is immediately in Offline state", () => {
+      const machine = start(OfflineStatus);
+      expect(machine.current).toEqual("Offline");
+      expect(machine.changeCount).toEqual(0);
+    });
+
+    it("reacts to online & offline events", () => {
+      const machine = start(OfflineStatus);
+      window.dispatchEvent(new Event("online"));
+      expect(machine.current).toEqual("Online");
+      expect(machine.changeCount).toEqual(1);
+
+      window.dispatchEvent(new Event("offline"));
+      expect(machine.current).toEqual("Offline");
+      expect(machine.changeCount).toEqual(2);
     });
   });
 });
