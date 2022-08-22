@@ -3,7 +3,7 @@ import { on, accumulate, start, map } from "./index";
 // See: https://components.guide/react+typescript/reducer-patterns
 
 describe("Toggle Flag boolean map callback", () => {
-  function* Switch() {
+  function* Toggle() {
     yield on(
       "toggle",
       map((current: boolean) => !current)
@@ -13,7 +13,7 @@ describe("Toggle Flag boolean map callback", () => {
   }
 
   test("sending events", () => {
-    const machine = start(Switch);
+    const machine = start(Toggle);
     expect(machine).toBeDefined();
     expect(machine.value.state).toEqual(false);
     expect(machine.value.change).toEqual(0);

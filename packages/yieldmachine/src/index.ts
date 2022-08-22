@@ -756,9 +756,9 @@ export function* iterate(
       ]();
       let reply: unknown = undefined;
       while (true) {
-        const item = iterator.next(reply);
-        if (item.done) {
-          return item.value as unknown;
+        const { value, done } = iterator.next(reply);
+        if (done) {
+          return value as unknown;
         }
       }
     } else if (typeof initialReturn === "function") {
@@ -789,9 +789,56 @@ export function* iterate(
           if (typeof value === "object" && "type" in value) {
             if (value.type === "on") {
               if (value.on === receivedEvent) {
-                stateDefinition = value.target;
-                _changeCount++;
-                continue eventLoop;
+                if (typeof value.target === "function") {
+                  stateDefinition = value.target;
+                  _changeCount++;
+                  continue eventLoop;
+                }
+                // if (value.target.type === "mapper") {
+                //   stateDefinition = value.target;
+                //   _changeCount++;
+                //   continue eventLoop;
+                // }
+              }
+            }
+          }
+        }
+
+        // continue eventLoop;
+      }
+    } else if (isPrimitiveState(stateDefinition)) {
+      const receivedEvent = yield {
+        state: stateDefinition,
+        change: _changeCount,
+      };
+      let reply: unknown = undefined;
+      // Use original machine again
+      const initialReturn = (machine as Function).apply(null);
+      // Generator function
+      if ((initialReturn as any)[Symbol.iterator]) {
+        const iterator: Iterator<any, unknown, unknown> = (
+          initialReturn as any
+        )[Symbol.iterator]();
+        let reply: unknown = undefined;
+
+        messages: while (true) {
+          const { value, done } = iterator.next(reply) as IteratorResult<
+            Yielded,
+            undefined
+          >;
+          if (done) {
+            break messages;
+          }
+          if (value) {
+            if (typeof value === "object" && "type" in value) {
+              if (value.type === "on") {
+                if (value.on === receivedEvent) {
+                  if ("type" in value.target && value.target.type === "mapper") {
+                    stateDefinition = (value.target.transform as any)(stateDefinition)
+                    _changeCount++;
+                    continue eventLoop;
+                  }
+                }
               }
             }
           }
