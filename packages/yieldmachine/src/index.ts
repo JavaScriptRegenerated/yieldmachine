@@ -30,6 +30,12 @@ export type ChoiceMap = Map<
   StateDefinition
 >;
 
+type MachineDefinition =
+  | (() => StateDefinition)
+  | (() => Generator<Yielded, StateDefinition, never>)
+  | (() => Generator<Yielded, PrimitiveState, never>)
+  | (() => Generator<Yielded, ChoiceMap, never>);
+
 export interface Cond {
   type: "cond";
   cond: ((readContext: ReadContextCallback) => boolean) | boolean;
@@ -349,12 +355,7 @@ class PrimitiveInstance implements Instance {
 }
 
 class GeneratorInstance implements Instance {
-  private definition:
-    | StateDefinition
-    | (() => StateDefinition)
-    | (() => Generator<Yielded, StateDefinition, never>)
-    | (() => Generator<Yielded, PrimitiveState, never>)
-    | (() => Generator<Yielded, ChoiceMap, never>);
+  private definition: StateDefinition | MachineDefinition;
   private parent: null | GeneratorInstance;
   private globalHandlers = new Handlers();
   private resolved = null as Promise<Record<string, any>> | null;
@@ -365,12 +366,7 @@ class GeneratorInstance implements Instance {
 
   constructor(
     parent: null | GeneratorInstance,
-    machineDefinition:
-      | StateDefinition
-      | (() => StateDefinition)
-      | (() => Generator<Yielded, StateDefinition, never>)
-      | (() => Generator<Yielded, PrimitiveState, never>)
-      | (() => Generator<Yielded, ChoiceMap, never>),
+    machineDefinition: StateDefinition | MachineDefinition,
     private signal: AbortSignal,
     private callbacks: {
       readonly changeCount: number;
@@ -536,10 +532,13 @@ class GeneratorInstance implements Instance {
       this.child = new PrimitiveInstance(initialStateDefinition);
     } else if (
       typeof initialStateDefinition === "object" &&
+      initialStateDefinition !== null &&
       "type" in initialStateDefinition &&
-      initialStateDefinition.type === "choice"
+      (initialStateDefinition as any).type === "choice"
     ) {
-      for (const [cond, checkTarget] of initialStateDefinition.choice) {
+      for (const [cond, checkTarget] of (
+        initialStateDefinition as ChoiceDefinition
+      ).choice) {
         const result: boolean =
           cond === null ? true : cond(this.callbacks.readContext);
         if (result === true) {
@@ -728,15 +727,20 @@ class MachineStateChangedEvent extends BaseEvent {
   }
 }
 
-export function* iterate(
-  machine:
-    | (() => StateDefinition)
-    | (() => Generator<Yielded, StateDefinition, never>)
-    | (() => Generator<Yielded, PrimitiveState, never>)
-    | (() => Generator<Yielded, ChoiceMap, never>)
+type InferInitialState<MachineDefinition> =
+  MachineDefinition extends () => Generator<any, number, any>
+    ? number
+    : MachineDefinition extends () => Generator<any, boolean, any>
+    ? boolean
+    : MachineDefinition extends () => Generator<any, symbol, any>
+    ? symbol
+    : unknown;
+
+export function* iterate<M extends MachineDefinition>(
+  machine: M
 ): Generator<
-  { state: unknown; change: number },
-  { state: unknown; change: number },
+  { state: InferInitialState<M>; change: number },
+  { state: InferInitialState<M>; change: number },
   string | symbol
 > {
   let _changeCount = 0;
@@ -771,7 +775,7 @@ export function* iterate(
   eventLoop: while (true) {
     if (typeof stateDefinition === "function") {
       const receivedEvent = yield {
-        state: stateDefinition.name,
+        state: stateDefinition.name as any,
         change: _changeCount,
       };
       const generator = stateDefinition();
@@ -808,7 +812,7 @@ export function* iterate(
       }
     } else if (isPrimitiveState(stateDefinition)) {
       const receivedEvent = yield {
-        state: stateDefinition,
+        state: stateDefinition as any,
         change: _changeCount,
       };
       let reply: unknown = undefined;
@@ -833,8 +837,13 @@ export function* iterate(
             if (typeof value === "object" && "type" in value) {
               if (value.type === "on") {
                 if (value.on === receivedEvent) {
-                  if ("type" in value.target && value.target.type === "mapper") {
-                    stateDefinition = (value.target.transform as any)(stateDefinition)
+                  if (
+                    "type" in value.target &&
+                    value.target.type === "mapper"
+                  ) {
+                    stateDefinition = (value.target.transform as any)(
+                      stateDefinition
+                    );
                     _changeCount++;
                     continue eventLoop;
                   }
@@ -846,8 +855,6 @@ export function* iterate(
       }
     }
   }
-
-  return { state: null, change: 0 };
 }
 
 export function start(
