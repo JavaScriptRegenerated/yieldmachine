@@ -1,7 +1,7 @@
 {
   "name": "yieldmachine",
   "amdName": "yieldmachine",
-  "version": "0.5.1",
+  "version": "0.6.0",
   "description": "Declarative state machines using generator functions",
   "source": "src/index.ts",
   "main": "dist/yieldmachine.js",
@@ -22,6 +22,7 @@
       "optimize": true
     }
   },
+  "sideEffects": false,
   "scripts": {
     "prepack": "jest && npm run build && node tests/node.js",
     "dev": "parcel watch",

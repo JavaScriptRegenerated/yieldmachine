@@ -3,7 +3,8 @@
  */
 
 import {
-  compound,
+  jumpTo,
+  cond,
   entry,
   on,
   listenTo,
@@ -390,8 +391,8 @@ describe("Hierarchical Traffic Lights Machine", () => {
       return walk;
     }
 
-    yield on("POWER_OUTAGE", compound(red, blinking));
-    yield on("POWER_RESTORED", compound(red));
+    yield on("POWER_OUTAGE", jumpTo(red, blinking));
+    yield on("POWER_RESTORED", jumpTo(red));
 
     return green;
   }
@@ -482,8 +483,8 @@ describe("Hierarchical Traffic Lights Machine", () => {
     //   }
     // })
 
-    yield on("RESET", compound(initial));
-    yield on("INCREMENT", compound(positive));
+    yield on("RESET", jumpTo(initial));
+    yield on("INCREMENT", jumpTo(positive));
 
     // const counter = yield reducer("counter", 0, n => n + 1);
     // const counter = yield reducer(0, {

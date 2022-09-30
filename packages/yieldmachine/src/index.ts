@@ -15,6 +15,7 @@ export interface ExitActionBody {
 export interface EntryAction {
   type: "entry";
   f: EntryActionBody;
+  // TODO: remove message and Send
   message?: [string | symbol, any[]];
 }
 export interface ExitAction {
@@ -47,13 +48,14 @@ export interface Cond {
   cond: ((readContext: ReadContextCallback) => boolean) | boolean;
   target: StateDefinition;
 }
-export interface Compound {
-  type: "compound";
+export interface JumpTo {
+  type: "jumpTo";
   targets: Array<StateDefinition> | ChoiceMap;
 }
 export interface ChoiceDefinition {
   type: "choice";
   choice: ChoiceMap;
+  level?: symbol;
 }
 export interface Mapper<State> {
   type: "mapper";
@@ -62,7 +64,7 @@ export interface Mapper<State> {
 export type Target =
   | StateDefinition
   | Cond
-  | Compound
+  | JumpTo
   | ChoiceDefinition
   | Mapper<boolean>
   | Mapper<number>
@@ -98,6 +100,11 @@ export interface Accumulate {
 export interface ReadContext {
   type: "readContext";
   contextName: string | symbol;
+}
+
+export interface Level {
+  type: "level";
+  identifier: symbol;
 }
 
 export type Yielded =
@@ -173,14 +180,16 @@ export function cond(
   return { type: "cond", cond, target };
 }
 
-// TODO: rename to child() or nested() or something else?
-export function compound(...targets: Array<StateDefinition>): Compound {
-  return { type: "compound", targets };
+export function jumpTo(...targets: Array<StateDefinition>): JumpTo {
+  return { type: "jumpTo", targets };
 }
 
 export function choice(choice: ChoiceMap): ChoiceDefinition {
   return { type: "choice", choice };
 }
+// export function choice(choice: ChoiceMap, level?: Level): ChoiceDefinition {
+//   return { type: "choice", choice, level: level?.identifier };
+// }
 
 export function accumulate(
   eventName: string | symbol,
@@ -678,7 +687,7 @@ class GeneratorInstance implements Instance {
             return true;
           }
         }
-      } else if (target.type === "compound") {
+      } else if (target.type === "jumpTo") {
         if (target.targets instanceof Map) {
           for (const [cond, checkTarget] of target.targets) {
             // TODO: make this ignore non-null-nor-function keys for future proofing?

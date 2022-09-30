@@ -1,4 +1,4 @@
-import { accumulate, compound, listenTo, on, start } from "./index";
+import { accumulate, jumpTo, listenTo, on, start } from "./index";
 
 describe("accumulate()", () => {
   const messagesKey = Symbol("messages");
@@ -6,7 +6,7 @@ describe("accumulate()", () => {
   function* Machine(eventTarget: EventTarget) {
     // yield on(new Map([["type", "error"], ["readyState", EventSource.CLOSED]]), Closed);
     yield listenTo(eventTarget, ["error"]);
-    yield on("error", compound(Closed));
+    yield on("error", jumpTo(Closed));
 
     function* Open() {
       yield listenTo(eventTarget, ["message"]);

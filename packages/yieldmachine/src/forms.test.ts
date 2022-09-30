@@ -15,7 +15,7 @@ describe("Element focus", () => {
 
     yield listenTo(el, ["blur", "focus"]);
     // yield listenTo(el.ownerDocument, "focusin");
-    // yield on("focusin", compound(CheckingActive));
+    // yield on("focusin", jumpTo(CheckingActive));
     yield on("focus", choice(checkingActive));
     yield on("blur", choice(checkingActive));
 

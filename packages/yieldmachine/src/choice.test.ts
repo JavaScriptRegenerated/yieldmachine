@@ -2,7 +2,14 @@
  * @jest-environment jsdom
  */
 
-import { choice, compound, listenTo, on, start } from "./index";
+import {
+  choice,
+  jumpTo,
+  listenTo,
+  on,
+  ReadContextCallback,
+  start,
+} from "./index";
 
 function useEach(work: () => () => void) {
   let cleanup: null | (() => void) = null;
@@ -20,10 +27,12 @@ describe("toggle syncing from external state", () => {
     function* Closed() {}
     function* Open() {}
 
-    const checkingOpen = choice(new Map([
-      [() => openValue, Open],
-      [null, Closed],
-    ]));
+    const checkingOpen = choice(
+      new Map([
+        [() => openValue, Open],
+        [null, Closed],
+      ])
+    );
     yield on("toggle", checkingOpen);
 
     return checkingOpen;
@@ -147,16 +156,20 @@ describe("Form Field Machine with external validation", () => {
 describe("Wrapping navigator online as a state machine", () => {
   function* OfflineStatus() {
     yield listenTo(window, ["online", "offline"]);
-    yield on("online", compound(Online));
-    yield on("offline", compound(Offline));
+    yield on("online", jumpTo(Online));
+    yield on("offline", jumpTo(Offline));
 
     function* Online() {}
     function* Offline() {}
 
-    return choice(new Map([
-      [() => navigator.onLine, Online],
-      [null, Offline],
-    ]));
+    return choice(
+      new Map([
+        [() => navigator.onLine, Online],
+        [null, Offline],
+      ])
+    );
+
+    // return choice(when(() => navigator.onLine, Online), always(Offline));
   }
 
   describe("when online", () => {
@@ -217,5 +230,89 @@ describe("Wrapping navigator online as a state machine", () => {
         state: "Offline",
       });
     });
+  });
+});
+
+describe("Specific keyboard shortcut handler", () => {
+  function KeyShortcutListener(el: HTMLElement) {
+    function isEscapeKey(readContext: ReadContextCallback) {
+      const event = readContext("event");
+      return event instanceof KeyboardEvent && event.key === "Escape";
+    }
+    function isEnterKey(readContext: ReadContextCallback) {
+      const event = readContext("event");
+      return event instanceof KeyboardEvent && event.key === "Enter";
+    }
+
+    // TODO: wrap in choice(new Map(…))
+    const openChoiceKeydown = new Map([
+      [isEscapeKey, Closed],
+      [null, Open as any],
+    ]);
+    const closedChoiceKeydown = new Map([
+      [isEnterKey, Open],
+      [null, Closed as any],
+    ]);
+
+    function* Open() {
+      yield on("keydown", openChoiceKeydown);
+      yield listenTo(el, ["keydown"]);
+    }
+    function* Closed() {
+      yield on("keydown", closedChoiceKeydown);
+      yield listenTo(el, ["keydown"]);
+    }
+
+    return Closed;
+  }
+
+  it("listens when keys are pressed", () => {
+    const aborter = new AbortController();
+    const input = document.createElement("input");
+    const addEventListenerSpy = jest.spyOn(input, "addEventListener");
+    const machine = start(KeyShortcutListener.bind(null, input), {
+      signal: aborter.signal,
+    });
+    expect(machine.value).toMatchObject({
+      state: "Closed",
+      change: 0,
+    });
+    expect(addEventListenerSpy).toHaveBeenCalledTimes(1);
+
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+    expect(machine.value).toMatchObject({
+      state: "Open",
+      change: 1,
+    });
+    expect(addEventListenerSpy).toHaveBeenCalledTimes(2);
+
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+    expect(machine.value).toMatchObject({
+      state: "Open",
+      change: 1,
+    });
+
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "a" }));
+    expect(machine.value).toMatchObject({
+      state: "Open",
+      change: 1,
+    });
+    expect(addEventListenerSpy).toHaveBeenCalledTimes(2);
+
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    expect(machine.value).toMatchObject({
+      state: "Closed",
+      change: 2,
+    });
+    expect(addEventListenerSpy).toHaveBeenCalledTimes(3);
+
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "a" }));
+    expect(machine.value).toMatchObject({
+      state: "Closed",
+      change: 2,
+    });
+    expect(addEventListenerSpy).toHaveBeenCalledTimes(3);
+
+    aborter.abort();
   });
 });
