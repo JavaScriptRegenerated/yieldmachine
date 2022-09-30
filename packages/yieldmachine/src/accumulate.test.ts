@@ -36,10 +36,12 @@ describe("accumulate()", () => {
     machine.eventTarget.addEventListener("StateChanged", stateChangedListener);
     machine.eventTarget.addEventListener("AccumulationsChanged", accumulationsChangedListener);
 
-    expect(machine.current).toEqual("Connecting");
+    expect(machine.value.state).toEqual("Connecting");
+    expect(machine.value.change).toEqual(0);
 
     eventTarget.dispatchEvent(new Event("open"));
-    expect(machine.current).toEqual("Open");
+    expect(machine.value.state).toEqual("Open");
+    expect(machine.value.change).toEqual(1);
     expect(machine.accumulations).toEqual(new Map());
     expect(stateChangedListener).toHaveBeenCalledTimes(1);
     expect(stateChangedListener).toHaveBeenLastCalledWith(expect.objectContaining({ type: "StateChanged" }));
@@ -51,29 +53,34 @@ describe("accumulate()", () => {
     const event4 = new Event("message");
 
     eventTarget.dispatchEvent(event1);
-    expect(machine.current).toEqual("Open");
+    expect(machine.value.state).toEqual("Open");
+    expect(machine.value.change).toEqual(1);
     expect(machine.accumulations).toEqual(new Map([[messagesKey, [event1]]]));
     expect(accumulationsChangedListener).toHaveBeenCalledTimes(1);
     expect(accumulationsChangedListener).toHaveBeenLastCalledWith(expect.objectContaining({ type: "AccumulationsChanged" }));
 
     eventTarget.dispatchEvent(event2);
-    expect(machine.current).toEqual("Open");
+    expect(machine.value.state).toEqual("Open");
+    expect(machine.value.change).toEqual(1);
     expect(machine.accumulations).toEqual(new Map([[messagesKey, [event1, event2]]]));
     expect(accumulationsChangedListener).toHaveBeenCalledTimes(2);
     expect(accumulationsChangedListener).toHaveBeenLastCalledWith(expect.objectContaining({ type: "AccumulationsChanged" }));
 
     eventTarget.dispatchEvent(event3);
-    expect(machine.current).toEqual("Open");
+    expect(machine.value.state).toEqual("Open");
+    expect(machine.value.change).toEqual(1);
     expect(machine.accumulations).toEqual(new Map([[messagesKey, [event1, event2, event3]]]));
     expect(accumulationsChangedListener).toHaveBeenCalledTimes(3);
 
     eventTarget.dispatchEvent(new Event("error"));
-    expect(machine.current).toEqual("Closed");
+    expect(machine.value.state).toEqual("Closed");
+    expect(machine.value.change).toEqual(2);
     expect(machine.accumulations).toEqual(new Map());
     expect(accumulationsChangedListener).toHaveBeenCalledTimes(3);
 
     eventTarget.dispatchEvent(event4);
-    expect(machine.current).toEqual("Closed");
+    expect(machine.value.state).toEqual("Closed");
+    expect(machine.value.change).toEqual(2);
     expect(machine.accumulations).toEqual(new Map());
     expect(accumulationsChangedListener).toHaveBeenCalledTimes(3);
 
