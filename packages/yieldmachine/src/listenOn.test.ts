@@ -9,7 +9,8 @@ import {
   on,
   listenTo,
   start,
-  ReadContextCallback
+  ReadContextCallback,
+  send
 } from "./index";
 
 describe("Button click", () => {
