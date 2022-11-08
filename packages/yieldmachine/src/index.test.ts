@@ -16,14 +16,22 @@ import {
   Yielded,
 } from "./index";
 
-test("node version " + process.version, () => {});
+test("node version " + process.version, () => { });
 
 describe("Switch", () => {
   function Switch() {
     function* Off() {
+      // yield expose("Off");
+      // Exposes a set that can be queried for membership.
+      // An important detail is that multiple states could expose the same member.
+      // yield member("Off");
+      // yield fulfill(has("Off"));
+      // yield includes("Off");
+      // yield primary("Off");
       yield on("flick", On);
     }
     function* On() {
+      // yield primary("On");
       yield on("flick", Off);
     }
 
@@ -33,15 +41,22 @@ describe("Switch", () => {
   it("changes state and change count", () => {
     const machine = start(Switch);
     expect(machine).toBeDefined();
-    expect(machine.current).toEqual("Off");
+    expect(machine.value).toMatchObject({
+      change: 0,
+      state: "Off",
+    });
 
     machine.next("flick");
-    expect(machine.current).toEqual("On");
-    expect(machine.changeCount).toEqual(1);
+    expect(machine.value).toMatchObject({
+      change: 1,
+      state: "On",
+    });
 
     machine.next("flick");
-    expect(machine.current).toEqual("Off");
-    expect(machine.changeCount).toEqual(2);
+    expect(machine.value).toMatchObject({
+      change: 2,
+      state: "Off",
+    });
   });
 
   it("emits events to signal", () => {
@@ -53,14 +68,14 @@ describe("Switch", () => {
     machine.eventTarget.addEventListener("StateChanged", eventListener);
 
     machine.next("flick");
-    expect(machine.current).toEqual("On");
+    expect(machine.value.state).toEqual("On")
     expect(eventListener).toHaveBeenCalledTimes(1);
     expect(eventListener).toHaveBeenLastCalledWith(
       expect.objectContaining({ type: "StateChanged", value: "On" })
     );
 
     machine.next("flick");
-    expect(machine.current).toEqual("Off");
+    expect(machine.value.state).toEqual("Off");
     expect(eventListener).toHaveBeenCalledTimes(2);
     expect(eventListener).toHaveBeenLastCalledWith(
       expect.objectContaining({ type: "StateChanged", value: "Off" })
@@ -69,7 +84,7 @@ describe("Switch", () => {
     machine.eventTarget.removeEventListener("StateChanged", eventListener);
 
     machine.next("flick");
-    expect(machine.current).toEqual("On");
+    expect(machine.value.state).toEqual("On");
     expect(eventListener).toHaveBeenCalledTimes(2);
   });
 
@@ -107,19 +122,25 @@ describe("Switch with symbol messages", () => {
   test("sending events", () => {
     const machine = start(Switch);
     expect(machine).toBeDefined();
-    expect(machine.current).toEqual("Off");
+    expect(machine.value.state).toEqual("Off");
 
     machine.next(flick);
-    expect(machine.current).toEqual("On");
-    expect(machine.changeCount).toEqual(1);
+    expect(machine.value).toMatchObject({
+      change: 1,
+      state: "On",
+    });
 
     machine.next(flick);
-    expect(machine.current).toEqual("Off");
-    expect(machine.changeCount).toEqual(2);
+    expect(machine.value).toMatchObject({
+      change: 2,
+      state: "Off",
+    });
 
     machine.next(Symbol("will be ignored"));
-    expect(machine.current).toEqual("Off");
-    expect(machine.changeCount).toEqual(2);
+    expect(machine.value).toMatchObject({
+      change: 2,
+      state: "Off",
+    });
   });
 });
 
@@ -128,6 +149,7 @@ describe("Switch machine as class", () => {
     onCount: number;
 
     constructor() {
+      // this.Off = Object.assign(this.Off.bind(this), { name: "Off" });
       this.Off = this.Off.bind(this);
       this.On = this.On.bind(this);
 
@@ -154,21 +176,30 @@ describe("Switch machine as class", () => {
     const instance = new Switch();
     const machine = start(() => instance.initial);
     expect(machine).toBeDefined();
-    expect(machine.current).toEqual("bound Off");
+    expect(machine.value).toMatchObject({
+      change: 0,
+      state: "bound Off",
+    });
     expect(instance.onCount).toEqual(0);
 
     machine.next("FLICK");
-    expect(machine.current).toEqual("bound On");
-    expect(machine.changeCount).toEqual(1);
+    expect(machine.value).toMatchObject({
+      change: 1,
+      state: "bound On",
+    });
     expect(instance.onCount).toEqual(1);
 
     machine.next("FLICK");
-    expect(machine.current).toEqual("bound Off");
-    expect(machine.changeCount).toEqual(2);
+    expect(machine.value).toMatchObject({
+      change: 2,
+      state: "bound Off",
+    });
 
     machine.next(Symbol("will be ignored"));
-    expect(machine.current).toEqual("bound Off");
-    expect(machine.changeCount).toEqual(2);
+    expect(machine.value).toMatchObject({
+      change: 2,
+      state: "bound Off",
+    });
   });
 });
 
@@ -179,7 +210,7 @@ describe("Switch with states as classes", () => {
       yield* instance.body();
     }
 
-    *body(): Generator<Yielded, any, unknown> {}
+    *body(): Generator<Yielded, any, unknown> { }
   }
 
   function Switch() {
@@ -200,23 +231,32 @@ describe("Switch with states as classes", () => {
   test("sending events", () => {
     const machine = start(Switch as any);
     expect(machine).toBeDefined();
-    expect(machine.current).toEqual("Off");
+    expect(machine.value).toMatchObject({
+      change: 0,
+      state: "Off",
+    });
 
     machine.next("flick");
-    expect(machine.current).toEqual("On");
-    expect(machine.changeCount).toEqual(1);
+    expect(machine.value).toMatchObject({
+      change: 1,
+      state: "On",
+    });
 
     machine.next("flick");
-    expect(machine.current).toEqual("Off");
-    expect(machine.changeCount).toEqual(2);
+    expect(machine.value).toMatchObject({
+      change: 2,
+      state: "Off",
+    });
 
     machine.next(Symbol("will be ignored"));
-    expect(machine.current).toEqual("Off");
-    expect(machine.changeCount).toEqual(2);
+    expect(machine.value).toMatchObject({
+      change: 2,
+      state: "Off",
+    });
   });
 });
 
-describe("Form Field Machine with always()", () => {
+describe("Form Field Machine with conditional validation using Map", () => {
   const isValid = jest.fn();
   beforeEach(isValid.mockClear);
 
@@ -251,19 +291,28 @@ describe("Form Field Machine with always()", () => {
     test("sending events", () => {
       const formField = start(FormField);
       expect(formField).toBeDefined();
-      expect(formField.current).toEqual("initial");
+      expect(formField.value).toMatchObject({
+        change: 0,
+        state: "initial",
+      });
 
       formField.next("CHANGE");
-      expect(formField.current).toEqual("editing");
-      expect(formField.changeCount).toEqual(1);
+      expect(formField.value).toMatchObject({
+        change: 1,
+        state: "editing",
+      });
 
       formField.next("CHANGE");
-      expect(formField.current).toEqual("editing");
-      expect(formField.changeCount).toEqual(1);
+      expect(formField.value).toMatchObject({
+        change: 1,
+        state: "editing",
+      });
 
       formField.next("BLUR");
-      expect(formField.current).toEqual("valid");
-      expect(formField.changeCount).toEqual(2);
+      expect(formField.value).toMatchObject({
+        change: 2,
+        state: "valid",
+      });
     });
   });
 
@@ -275,29 +324,33 @@ describe("Form Field Machine with always()", () => {
     test("sending events", () => {
       const formField = start(FormField);
       expect(formField).toBeDefined();
-      expect(formField.current).toEqual("initial");
+      expect(formField.value).toMatchObject({
+        change: 0,
+        state: "initial",
+      });
 
       formField.next("CHANGE");
-      expect(formField.current).toEqual("editing");
-      expect(formField.changeCount).toEqual(1);
+      expect(formField.value).toMatchObject({
+        change: 1,
+        state: "editing",
+      });
 
       formField.next("CHANGE");
-      expect(formField.current).toEqual("editing");
-      expect(formField.changeCount).toEqual(1);
+      expect(formField.value).toMatchObject({
+        change: 1,
+        state: "editing",
+      });
 
       formField.next("BLUR");
-      expect(formField.current).toEqual("invalid");
-      expect(formField.changeCount).toEqual(2);
+      expect(formField.value).toMatchObject({
+        change: 2,
+        state: "invalid",
+      });
     });
   });
 });
 
 describe("Hierarchical Traffic Lights Machine", () => {
-  // const validate = jest.fn();
-  // beforeEach(validate.mockClear);
-  const isValid = jest.fn();
-  beforeEach(isValid.mockClear);
-
   function PedestrianFactory() {
     function* walk() {
       yield on("PED_COUNTDOWN", wait);
@@ -305,8 +358,8 @@ describe("Hierarchical Traffic Lights Machine", () => {
     function* wait() {
       yield on("PED_COUNTDOWN", stop);
     }
-    function* stop() {}
-    function* blinking() {}
+    function* stop() { }
+    function* blinking() { }
 
     return { walk, blinking };
   }
@@ -334,29 +387,42 @@ describe("Hierarchical Traffic Lights Machine", () => {
   test("sending events", () => {
     const machine = start(TrafficLights);
     expect(machine).toBeDefined();
-    expect(machine.current).toEqual("green");
+    expect(machine.value).toMatchObject({
+      change: 0,
+      state: "green",
+    });
 
     machine.next("TIMER");
-    expect(machine.current).toEqual("yellow");
-    expect(machine.changeCount).toEqual(1);
+    expect(machine.value).toMatchObject({
+      change: 1,
+      state: "yellow",
+    });
 
     machine.next("TIMER");
-    expect(machine.current).toEqual({ red: "walk" });
+    expect(machine.value).toMatchObject({
+      change: 3,
+      state: { red: "walk" },
+    });
     // expect(machine.current).toEqual([["red", "walk"]]); // Like a Map key
     // expect(machine.currentMap).toEqual(new Map([["red", "walk"]]));
-    expect(machine.changeCount).toEqual(3);
 
     machine.next("TIMER");
-    expect(machine.current).toEqual("green");
-    expect(machine.changeCount).toEqual(4);
+    expect(machine.value).toMatchObject({
+      change: 4,
+      state: "green",
+    });
 
     machine.next("POWER_RESTORED");
-    expect(machine.current).toEqual({ red: "walk" });
-    expect(machine.changeCount).toEqual(6);
+    expect(machine.value).toMatchObject({
+      change: 6,
+      state: { red: "walk" },
+    });
 
     machine.next("POWER_OUTAGE");
-    expect(machine.current).toEqual({ red: "blinking" });
-    expect(machine.changeCount).toEqual(7);
+    expect(machine.value).toMatchObject({
+      change: 7,
+      state: { red: "blinking" },
+    });
   });
 });
 
@@ -383,7 +449,7 @@ describe("Wrapping AbortController as a state machine", () => {
       yield on("abort", Aborted);
       yield listenTo(controller.signal, ["abort"]);
     }
-    function* Aborted() {}
+    function* Aborted() { }
 
     return new Map([
       [() => controller.signal.aborted, Aborted],
@@ -414,22 +480,28 @@ describe("Wrapping AbortController as a state machine", () => {
       const aborter = new AbortController();
       aborter.abort();
       const machine = start(AbortForwarder.bind(null, aborter));
-      expect(machine.current).toEqual("Aborted");
-      expect(machine.changeCount).toEqual(0);
+      expect(machine.value).toMatchObject({
+        change: 0,
+        state: "Aborted",
+      });
     });
 
     it("tells AbortController to abort", () => {
       const aborter = new AbortController();
       const machine = start(AbortForwarder.bind(null, aborter));
 
-      expect(machine.current).toEqual("Initial");
-      expect(machine.changeCount).toEqual(0);
+      expect(machine.value).toMatchObject({
+        change: 0,
+        state: "Initial",
+      });
 
       expect(aborter.signal.aborted).toBe(false);
 
       machine.next("abort");
-      expect(machine.current).toEqual("Aborted");
-      expect(machine.changeCount).toEqual(1);
+      expect(machine.value).toMatchObject({
+        change: 1,
+        state: "Aborted",
+      });
 
       expect(aborter.signal.aborted).toBe(true);
     });
@@ -440,21 +512,27 @@ describe("Wrapping AbortController as a state machine", () => {
       const aborter = new AbortController();
       aborter.abort();
       const machine = start(AbortListener.bind(null, aborter));
-      expect(machine.current).toEqual("Aborted");
-      expect(machine.changeCount).toEqual(0);
+      expect(machine.value).toMatchObject({
+        change: 0,
+        state: "Aborted",
+      });
     });
 
     it("listens when AbortController aborts", () => {
       const aborter = new AbortController();
       const machine = start(AbortListener.bind(null, aborter));
 
-      expect(machine.current).toEqual("Initial");
-      expect(machine.changeCount).toEqual(0);
+      expect(machine.value).toMatchObject({
+        change: 0,
+        state: "Initial",
+      });
       expect(aborter.signal.aborted).toBe(false);
 
       aborter.abort();
-      expect(machine.current).toEqual("Aborted");
-      expect(machine.changeCount).toEqual(1);
+      expect(machine.value).toMatchObject({
+        change: 1,
+        state: "Aborted",
+      });
     });
   });
 
@@ -462,8 +540,10 @@ describe("Wrapping AbortController as a state machine", () => {
     it.skip("aborts", async () => {
       const machine = start(AbortOwner);
 
-      expect(machine.current).toEqual("Initial");
-      expect(machine.changeCount).toEqual(0);
+      expect(machine.value).toMatchObject({
+        change: 0,
+        state: "Initial",
+      });
 
       const { controller } = (await machine.results) as {
         controller: AbortController;
@@ -472,8 +552,10 @@ describe("Wrapping AbortController as a state machine", () => {
       expect(controller.signal.aborted).toBe(false);
 
       machine.next("abort");
-      expect(machine.current).toEqual("Aborted");
-      expect(machine.changeCount).toEqual(1);
+      expect(machine.value).toMatchObject({
+        change: 1,
+        state: "Aborted",
+      });
 
       expect(controller.signal.aborted).toBe(true);
     });
@@ -486,7 +568,7 @@ describe("Button click", () => {
       yield on("click", Clicked);
       yield listenTo(button, ["click"]);
     }
-    function* Clicked() {}
+    function* Clicked() { }
 
     return Initial;
   }
