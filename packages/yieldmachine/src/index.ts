@@ -71,7 +71,7 @@ export interface On {
 
 export interface ListenTo {
   type: "listenTo";
-  eventNames: Array<string>;
+  eventNames: Set<string>;
   sender: EventTarget;
 }
 
@@ -136,9 +136,9 @@ export function exit(f: ExitActionBody): ExitAction {
 
 export function listenTo(
   sender: EventTarget,
-  eventNames: Array<string>
+  eventNames: Array<string> | Set<string>
 ): ListenTo {
-  return { type: "listenTo", sender, eventNames: Array.from(eventNames) };
+  return { type: "listenTo", sender, eventNames: new Set(eventNames) };
 }
 
 // TODO: remove?
