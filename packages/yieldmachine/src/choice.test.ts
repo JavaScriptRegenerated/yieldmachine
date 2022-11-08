@@ -85,19 +85,28 @@ describe("Form Field Machine with external validation", () => {
     test("sending events", () => {
       const formField = start(FormField);
       expect(formField).toBeDefined();
-      expect(formField.current).toEqual("initial");
+      expect(formField.value).toMatchObject({
+        change: 0,
+        state: "initial",
+      });
 
       formField.next("CHANGE");
-      expect(formField.current).toEqual("editing");
-      expect(formField.changeCount).toEqual(1);
+      expect(formField.value).toMatchObject({
+        change: 1,
+        state: "editing",
+      });
 
       formField.next("CHANGE");
-      expect(formField.current).toEqual("editing");
-      expect(formField.changeCount).toEqual(1);
+      expect(formField.value).toMatchObject({
+        change: 1,
+        state: "editing",
+      });
 
       formField.next("BLUR");
-      expect(formField.current).toEqual("valid");
-      expect(formField.changeCount).toEqual(2);
+      expect(formField.value).toMatchObject({
+        change: 2,
+        state: "valid",
+      });
     });
   });
 
@@ -109,19 +118,28 @@ describe("Form Field Machine with external validation", () => {
     test("sending events", () => {
       const formField = start(FormField);
       expect(formField).toBeDefined();
-      expect(formField.current).toEqual("initial");
+      expect(formField.value).toMatchObject({
+        change: 0,
+        state: "initial",
+      });
 
       formField.next("CHANGE");
-      expect(formField.current).toEqual("editing");
-      expect(formField.changeCount).toEqual(1);
+      expect(formField.value).toMatchObject({
+        change: 1,
+        state: "editing",
+      });
 
       formField.next("CHANGE");
-      expect(formField.current).toEqual("editing");
-      expect(formField.changeCount).toEqual(1);
+      expect(formField.value).toMatchObject({
+        change: 1,
+        state: "editing",
+      });
 
       formField.next("BLUR");
-      expect(formField.current).toEqual("invalid");
-      expect(formField.changeCount).toEqual(2);
+      expect(formField.value).toMatchObject({
+        change: 2,
+        state: "invalid",
+      });
     });
   });
 });
@@ -149,19 +167,25 @@ describe("Wrapping navigator online as a state machine", () => {
 
     it("is immediately in Online state", () => {
       const machine = start(OfflineStatus);
-      expect(machine.current).toEqual("Online");
-      expect(machine.changeCount).toEqual(0);
+      expect(machine.value).toMatchObject({
+        change: 0,
+        state: "Online",
+      });
     });
 
     it("reacts to offline & online events", () => {
       const machine = start(OfflineStatus);
       window.dispatchEvent(new Event("offline"));
-      expect(machine.current).toEqual("Offline");
-      expect(machine.changeCount).toEqual(1);
+      expect(machine.value).toMatchObject({
+        change: 1,
+        state: "Offline",
+      });
 
       window.dispatchEvent(new Event("online"));
-      expect(machine.current).toEqual("Online");
-      expect(machine.changeCount).toEqual(2);
+      expect(machine.value).toMatchObject({
+        change: 2,
+        state: "Online",
+      });
     });
   });
 
@@ -173,19 +197,25 @@ describe("Wrapping navigator online as a state machine", () => {
 
     it("is immediately in Offline state", () => {
       const machine = start(OfflineStatus);
-      expect(machine.current).toEqual("Offline");
-      expect(machine.changeCount).toEqual(0);
+      expect(machine.value).toMatchObject({
+        change: 0,
+        state: "Offline",
+      });
     });
 
     it("reacts to online & offline events", () => {
       const machine = start(OfflineStatus);
       window.dispatchEvent(new Event("online"));
-      expect(machine.current).toEqual("Online");
-      expect(machine.changeCount).toEqual(1);
+      expect(machine.value).toMatchObject({
+        change: 1,
+        state: "Online",
+      });
 
       window.dispatchEvent(new Event("offline"));
-      expect(machine.current).toEqual("Offline");
-      expect(machine.changeCount).toEqual(2);
+      expect(machine.value).toMatchObject({
+        change: 2,
+        state: "Offline",
+      });
     });
   });
 });

@@ -56,13 +56,9 @@ describe("Machine with entry and exit actions", () => {
         state: "idle",
         actions: [],
       });
-      expect(loader.changeCount).toEqual(0);
-      expect(loader.current).toEqual("idle");
 
       const valueA = loader.value;
       loader.next("NOOP");
-      expect(loader.current).toEqual("idle");
-      expect(loader.changeCount).toEqual(0);
       expect(loader.value).toBe(valueA);
 
       const transitionResult = loader.next("FETCH");
@@ -78,8 +74,6 @@ describe("Machine with entry and exit actions", () => {
         actions: [{ type: "entry", f: fetchData }],
       });
       expect(loader.value).not.toBe(valueA);
-      expect(loader.current).toEqual("loading");
-      expect(loader.changeCount).toEqual(1);
       expect(finishedLoading).toHaveBeenCalledTimes(0);
 
       await expect(loader.value.results).resolves.toEqual({ fetchData: 42 });
@@ -89,14 +83,15 @@ describe("Machine with entry and exit actions", () => {
         fetchData: 42,
       });
       expect(finishedLoading).toHaveBeenCalledTimes(1);
-      expect(loader.changeCount).toEqual(2);
-      expect(loader.current).toEqual("success");
+      expect(loader.value).toMatchObject({
+        change: 2,
+        state: "success",
+        actions: [{ type: "entry", f: succeeded }],
+      });
       expect(succeeded).toHaveBeenCalledTimes(1);
 
       const transitionResult2 = loader.next("FETCH");
-      // expect(transitionResult2.actions).toEqual([]);
-      expect(loader.changeCount).toEqual(2);
-      expect(loader.current).toEqual("success");
+      // expect(transitionResult2.value.actions).toEqual([]);
       expect(succeeded).toHaveBeenCalledTimes(1);
 
       await loader.results;
@@ -133,23 +128,28 @@ describe("Machine with entry and exit actions", () => {
       await expect(
         Promise.resolve(transitionResult.value.results)
       ).rejects.toEqual(new Error("Failed!"));
-      expect(loader.changeCount).toEqual(2);
-      expect(loader.current).toEqual("failure");
+      expect(loader.value).toMatchObject({
+        change: 2,
+        state: "failure",
+      });
 
       loader.next("FETCH");
       expect(fetch).toHaveBeenCalledTimes(1);
-      expect(loader.changeCount).toEqual(2);
 
       loader.next("RETRY");
-      expect(loader.current).toEqual("loading");
-      expect(loader.changeCount).toEqual(3);
+      expect(loader.value).toMatchObject({
+        change: 3,
+        state: "loading",
+      });
 
       expect(fetch).toHaveBeenCalledTimes(2);
       expect(fetch).toHaveBeenLastCalledWith("https://example.org/");
 
       await expect(loader.results).resolves.toEqual({ fetchData: 42 });
-      expect(loader.changeCount).toEqual(4);
-      expect(loader.current).toEqual("success");
+      expect(loader.value).toMatchObject({
+        change: 4,
+        state: "success",
+      });
     });
   });
 });
@@ -211,12 +211,16 @@ describe("Fetch with abort signal", () => {
 
     test("sending events", async () => {
       const loader = start(Loader);
-      expect(loader.current).toEqual("idle");
-      expect(loader.changeCount).toEqual(0);
+      expect(loader.value).toMatchObject({
+        change: 0,
+        state: "idle",
+      });
 
       loader.next("NOOP");
-      expect(loader.current).toEqual("idle");
-      expect(loader.changeCount).toEqual(0);
+      expect(loader.value).toMatchObject({
+        change: 0,
+        state: "idle",
+      });
 
       const transitionResult = loader.next("FETCH");
       expect(fetch).toHaveBeenCalledWith("https://example.org/", {
@@ -225,8 +229,10 @@ describe("Fetch with abort signal", () => {
       expect(transitionResult.value.actions).toEqual([
         { type: "entry", f: fetchData },
       ]);
-      expect(loader.current).toEqual("loading");
-      expect(loader.changeCount).toEqual(1);
+      expect(loader.value).toMatchObject({
+        change: 1,
+        state: "loading",
+      });
       expect(finishedLoading).toHaveBeenCalledTimes(0);
 
       await expect(loader.value.results).resolves.toEqual({ fetchData: 42 });
@@ -234,14 +240,18 @@ describe("Fetch with abort signal", () => {
         fetchData: 42,
       });
       expect(finishedLoading).toHaveBeenCalledTimes(1);
-      expect(loader.changeCount).toEqual(2);
-      expect(loader.current).toEqual("success");
+      expect(loader.value).toMatchObject({
+        change: 2,
+        state: "success",
+      });
       expect(succeeded).toHaveBeenCalledTimes(1);
 
       const transitionResult2 = loader.next("FETCH");
       // expect(transitionResult2.actions).toEqual([]);
-      expect(loader.changeCount).toEqual(2);
-      expect(loader.current).toEqual("success");
+      expect(loader.value).toMatchObject({
+        change: 2,
+        state: "success",
+      });
       expect(succeeded).toHaveBeenCalledTimes(1);
 
       await loader.results;
@@ -255,7 +265,10 @@ describe("Fetch with abort signal", () => {
 
     test("sending events", async () => {
       const loader = start(Loader);
-      expect(loader.current).toEqual("idle");
+      expect(loader.value).toMatchObject({
+        change: 0,
+        state: "idle",
+      });
 
       const transitionResult = loader.next("FETCH");
       expect(fetch).toHaveBeenCalledTimes(1);
@@ -265,23 +278,32 @@ describe("Fetch with abort signal", () => {
       expect(transitionResult.value.actions).toEqual([
         { type: "entry", f: fetchData },
       ]);
-      expect(loader.current).toEqual("loading");
-      expect(loader.changeCount).toEqual(1);
+      expect(loader.value).toMatchObject({
+        change: 1,
+        state: "loading",
+      });
 
       await expect(loader.results).rejects.toEqual(Error("Failed!"));
       await expect(transitionResult.value.results).rejects.toEqual(
         Error("Failed!")
       );
-      expect(loader.changeCount).toEqual(2);
-      expect(loader.current).toEqual("failure");
+      expect(loader.value).toMatchObject({
+        change: 2,
+        state: "failure",
+      });
 
       loader.next("FETCH");
       expect(fetch).toHaveBeenCalledTimes(1);
-      expect(loader.changeCount).toEqual(2);
+      expect(loader.value).toMatchObject({
+        change: 2,
+        state: "failure",
+      });
 
       loader.next("RETRY");
-      expect(loader.current).toEqual("loading");
-      expect(loader.changeCount).toEqual(3);
+      expect(loader.value).toMatchObject({
+        change: 3,
+        state: "loading",
+      });
 
       expect(fetch).toHaveBeenCalledTimes(2);
       expect(fetch).toHaveBeenLastCalledWith("https://example.org/", {
@@ -289,8 +311,10 @@ describe("Fetch with abort signal", () => {
       });
 
       await expect(loader.results).resolves.toEqual({ fetchData: 42 });
-      expect(loader.changeCount).toEqual(4);
-      expect(loader.current).toEqual("success");
+      expect(loader.value).toMatchObject({
+        change: 4,
+        state: "success",
+      });
     });
   });
 });

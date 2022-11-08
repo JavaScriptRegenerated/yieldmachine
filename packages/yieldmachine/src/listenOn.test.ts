@@ -28,16 +28,22 @@ describe("Button click", () => {
     const button = document.createElement("button");
     const machine = start(ButtonClickListener.bind(null, button));
 
-    expect(machine.current).toEqual("Initial");
-    expect(machine.changeCount).toEqual(0);
+    expect(machine.value).toMatchObject({
+      change: 0,
+      state: "Initial",
+    });
 
     button.click();
-    expect(machine.current).toEqual("Clicked");
-    expect(machine.changeCount).toEqual(1);
+    expect(machine.value).toMatchObject({
+      change: 1,
+      state: "Clicked",
+    });
 
     button.click();
-    expect(machine.current).toEqual("Clicked");
-    expect(machine.changeCount).toEqual(1);
+    expect(machine.value).toMatchObject({
+      change: 1,
+      state: "Clicked",
+    });
   });
 });
 
@@ -370,28 +376,40 @@ describe("Key shortcut cond reading event", () => {
       signal: aborter.signal,
     });
 
-    expect(machine.current).toEqual("Closed");
-    expect(machine.changeCount).toEqual(0);
+    expect(machine.value).toMatchObject({
+      change: 0,
+      state: "Closed",
+    });
 
     input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
-    expect(machine.current).toEqual("Open");
-    expect(machine.changeCount).toEqual(1);
+    expect(machine.value).toMatchObject({
+      change: 1,
+      state: "Open",
+    });
 
     input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
-    expect(machine.current).toEqual("Open");
-    expect(machine.changeCount).toEqual(1);
+    expect(machine.value).toMatchObject({
+      change: 1,
+      state: "Open",
+    });
 
     input.dispatchEvent(new KeyboardEvent("keydown", { key: "a" }));
-    expect(machine.current).toEqual("Open");
-    expect(machine.changeCount).toEqual(1);
+    expect(machine.value).toMatchObject({
+      change: 1,
+      state: "Open",
+    });
 
     input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
-    expect(machine.current).toEqual("Closed");
-    expect(machine.changeCount).toEqual(2);
+    expect(machine.value).toMatchObject({
+      change: 2,
+      state: "Closed",
+    });
 
     input.dispatchEvent(new KeyboardEvent("keydown", { key: "a" }));
-    expect(machine.current).toEqual("Closed");
-    expect(machine.changeCount).toEqual(2);
+    expect(machine.value).toMatchObject({
+      change: 2,
+      state: "Closed",
+    });
 
     aborter.abort();
   });

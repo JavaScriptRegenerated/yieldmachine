@@ -36,20 +36,26 @@ describe("Syncing from HTML <details> element with choice Map", () => {
 
     const machine = start(DetailsListener.bind(null, detailsEl), { signal: aborter.signal });
 
-    expect(machine.current).toEqual("Closed");
-    expect(machine.changeCount).toEqual(0);
+    expect(machine.value).toMatchObject({
+      change: 0,
+      state: "Closed",
+    });
 
     await user.click(summaryEl);
     expect(detailsEl.open).toBe(true);
     detailsEl.dispatchEvent(new Event('toggle'));
-    expect(machine.current).toEqual("Open");
-    expect(machine.changeCount).toEqual(1);
+    expect(machine.value).toMatchObject({
+      change: 1,
+      state: "Open",
+    });
 
     await user.click(summaryEl);
     expect(detailsEl.open).toBe(false);
     detailsEl.dispatchEvent(new Event('toggle'));
-    expect(machine.current).toEqual("Closed");
-    expect(machine.changeCount).toEqual(2);
+    expect(machine.value).toMatchObject({
+      change: 2,
+      state: "Closed",
+    });
 
     aborter.abort();
     detailsEl.remove();
@@ -65,8 +71,10 @@ describe("Syncing from HTML <details> element with choice Map", () => {
 
     const machine = start(DetailsListener.bind(null, detailsEl), { signal: aborter.signal });
 
-    expect(machine.current).toEqual("Open");
-    expect(machine.changeCount).toEqual(0);
+    expect(machine.value).toMatchObject({
+      change: 0,
+      state: "Open",
+    });
 
     aborter.abort();
     detailsEl.remove();

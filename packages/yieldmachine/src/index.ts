@@ -188,8 +188,6 @@ export interface MachineInstance
   extends Iterator<MachineValue, void, string | symbol | { type: string }> {
   readonly value: MachineValue;
   readonly changeCount: number;
-  // TODO: remove `current`
-  readonly current: null | PrimitiveState | Record<string, PrimitiveState>;
   readonly results: null | Promise<unknown>;
   readonly accumulations: Map<symbol | string, Array<symbol | string | Event>>;
   readonly done: boolean;
@@ -965,9 +963,6 @@ export function start(
     },
     get changeCount() {
       return _changeCount;
-    },
-    get current() {
-      return getValue().state;
     },
     get eventTarget() {
       return _eventTarget;
