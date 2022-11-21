@@ -2,14 +2,16 @@
  * @jest-environment jsdom
  */
 
-import { on, iterate, map } from "./index";
+import { on, iterate, map, expose } from "./index";
 
 describe("Switch", () => {
   function Switch() {
     function* Off() {
+      yield expose("Off");
       yield on("flick", On);
     }
     function* On() {
+      yield expose("On");
       yield on("flick", Off);
     }
 
@@ -22,32 +24,41 @@ describe("Switch", () => {
     const i1 = iterator.next();
     expect(i1.value.state).toEqual("Off");
     expect(i1.value.change).toEqual(0);
+    expect(i1.value.query).toEqual("Off=");
     expect(i1.done).toBe(false);
-
+    
     const i2 = iterator.next("flick");
     expect(i2.value.state).toEqual("On");
     expect(i2.value.change).toEqual(1);
+    expect(i2.value.query).toEqual("On=");
     expect(i2.done).toBe(false);
 
     const i3 = iterator.next("flick");
     expect(i3.value.state).toEqual("Off");
     expect(i3.value.change).toEqual(2);
+    expect(i3.value.query).toEqual("Off=");
     expect(i3.done).toBe(false);
 
     const i4 = iterator.next("flick");
     expect(i4.value.state).toEqual("On");
     expect(i4.value.change).toEqual(3);
+    expect(i4.value.query).toEqual("On=");
     expect(i4.done).toBe(false);
-
+    
     const i5 = iterator.next("unknown");
     expect(i5.value.state).toEqual("On");
     expect(i5.value.change).toEqual(3);
+    expect(i5.value.query).toEqual("On=");
     expect(i5.done).toBe(false);
   });
 });
 
 describe("Toggle Flag boolean map callback", () => {
   function* Toggle() {
+    // yield expose(map((current: boolean) => current ? "flag" : null))
+    // yield expose("flag", map((current: boolean) => current));
+    yield expose("flag");
+
     yield on(
       "toggle",
       map((current: boolean) => !current)
@@ -62,6 +73,7 @@ describe("Toggle Flag boolean map callback", () => {
     const i1 = iterator.next();
     expect(i1.value.state).toEqual(false);
     expect(i1.value.change).toEqual(0);
+    // expect(i1.value.query).toEqual("");
     expect(i1.done).toBe(false);
 
     const i2 = iterator.next("toggle");

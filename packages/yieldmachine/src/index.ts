@@ -1,3 +1,9 @@
+export interface ExposeDefinition {
+  type: "expose";
+  key: string;
+  value?: string;
+}
+
 export interface EntryActionBody {
   // (): void;
   ({ signal }: { signal: AbortSignal }): void;
@@ -96,6 +102,7 @@ export interface ReadContext {
 
 export type Yielded =
   | On
+  | ExposeDefinition
   | EntryAction
   | ExitAction
   | ListenTo
@@ -110,6 +117,15 @@ export function on<Event extends string | symbol | ErrorConstructor>(
     type: "on",
     on: typeof event === "function" && "name" in event ? event.name : event,
     target,
+  };
+}
+
+export function expose(
+  key: string
+): ExposeDefinition {
+  return {
+    type: "expose",
+    key
   };
 }
 
@@ -179,6 +195,7 @@ export function readContext(contextName: string | symbol): ReadContext {
 
 interface MachineValue {
   readonly change: number;
+  readonly query: string;
   readonly state: null | PrimitiveState | Record<string, PrimitiveState>;
   readonly actions: Array<EntryAction | ExitAction>;
   readonly results: null | Promise<unknown>;
@@ -198,6 +215,7 @@ export interface MachineInstance
 
 class Handlers {
   private aborter = new AbortController();
+  private exposedParams = new URLSearchParams()
   private eventsMap = new Map<string | symbol, Target>();
   private entryActions = [] as Array<EntryAction>;
   private exitActions = [] as Array<ExitAction>;
@@ -211,6 +229,10 @@ class Handlers {
     return this.aborter.signal;
   }
 
+  get urlSearchParams() {
+    return this.exposedParams;
+  }
+
   *actions(): Generator<EntryAction, void, undefined> {
     yield* this.entryActions;
   }
@@ -219,17 +241,20 @@ class Handlers {
     this.aborter.abort();
     this.aborter = new AbortController();
 
+    this.exposedParams = new URLSearchParams();
     this.eventsMap.clear();
-    this.entryActions.splice(0, Infinity);
-    this.exitActions.splice(0, Infinity);
-    this.promises.splice(0, Infinity);
+    this.entryActions.length = 0;
+    this.exitActions.length = 0;
+    this.promises.length = 0;
     this.actionResults.clear();
-    this.eventsToListenTo.splice(0, Infinity);
-    this.eventsToAccumulate.splice(0, Infinity);
+    this.eventsToListenTo.length = 0;
+    this.eventsToAccumulate.length = 0;
   }
 
   add(value: Yielded, readContext: ReadContextCallback): unknown | void {
-    if (value.type === "entry") {
+    if (value.type === "expose") {
+      this.exposedParams.set(value.key, value.value ?? "");
+    } else if (value.type === "entry") {
       this.entryActions.push(value);
 
       const skip = Symbol();
@@ -392,6 +417,22 @@ class GeneratorInstance implements Instance {
 
   matchesDefinition(definition: StateDefinition) {
     return this.definition === definition;
+  }
+
+  get query(): string {
+    return "";
+    // const i = iterate(this.definition as any);
+    // const query = i.next().value.query;
+    // i.return({} as any)
+    // try {
+    //   i.throw(null)
+    // } catch {}
+    // return query;
+  }
+
+  get urlSearchParams(): URLSearchParams {
+    return new URLSearchParams(iterate(() => this.definition as any).next().value.query)
+    // return this.globalHandlers.urlSearchParams
   }
 
   get current(): PrimitiveState | Record<string, unknown> {
@@ -734,11 +775,17 @@ type InferInitialState<MachineDefinition> =
     ? symbol
     : unknown;
 
+export interface IteratedValue<State extends PrimitiveState | unknown> {
+  readonly change: number;
+  readonly query: string;
+  readonly state: State;
+}
+
 export function* iterate<M extends MachineDefinition>(
   machine: M
 ): Generator<
-  { state: InferInitialState<M>; change: number },
-  { state: InferInitialState<M>; change: number },
+  IteratedValue<InferInitialState<M>>,
+  IteratedValue<InferInitialState<M>>,
   string | symbol
 > {
   let _changeCount = 0;
@@ -750,30 +797,41 @@ export function* iterate<M extends MachineDefinition>(
       );
     }
 
+    const urlSearchParams = new URLSearchParams()
     const initialReturn = (machine as Function).apply(null);
     // Generator function
     if ((initialReturn as any)[Symbol.iterator]) {
-      const iterator: Iterator<any, unknown, unknown> = (initialReturn as any)[
+      const iterator: Iterator<Yielded, unknown, unknown> = (initialReturn as any)[
         Symbol.iterator
       ]();
       let reply: unknown = undefined;
       while (true) {
         const { value, done } = iterator.next(reply);
         if (done) {
-          return value as unknown;
+          return { initial: value as unknown, urlSearchParams };
+        }
+
+        if (typeof value === "object" && value.type === "expose") {
+          urlSearchParams.set(value.key, value.value ?? "")
         }
       }
     } else if (typeof initialReturn === "function") {
-      return initialReturn as unknown;
+      return { initial: initialReturn as unknown, urlSearchParams };
+    } else {
+      throw Error(
+        `Expected initial state, got: ${typeof initialReturn}.`
+      );
     }
   }
 
-  let stateDefinition = consume(machine);
+  let { initial: stateDefinition } = consume(machine);
 
   eventLoop: while (true) {
     if (typeof stateDefinition === "function") {
+      const { urlSearchParams } = consume(stateDefinition);
       const receivedEvent = yield {
         state: stateDefinition.name as any,
+        query: urlSearchParams.toString(),
         change: _changeCount,
       };
       const generator = stateDefinition();
@@ -811,6 +869,7 @@ export function* iterate<M extends MachineDefinition>(
     } else if (isPrimitiveState(stateDefinition)) {
       const receivedEvent = yield {
         state: stateDefinition as any,
+        query: "",
         change: _changeCount,
       };
       let reply: unknown = undefined;
@@ -940,6 +999,8 @@ export function start(
     let resultCache: undefined | Promise<unknown> = undefined;
     _cachedValue = Object.freeze({
       change: _changeCount,
+      // query: instance.urlSearchParams.toString(),
+      query: instance.query,
       state:
         instance.current !== null && typeof instance.current === "object"
           ? (instance.current[rootName] as any)

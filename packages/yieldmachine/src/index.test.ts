@@ -11,6 +11,7 @@ import {
   start,
   onceStateChangesTo,
   Yielded,
+  expose,
 } from "./index";
 
 test("node version " + process.version, () => { });
@@ -18,7 +19,8 @@ test("node version " + process.version, () => { });
 describe("Switch", () => {
   function Switch() {
     function* Off() {
-      // yield expose("Off");
+      yield expose("Off");
+      // yield respondsTo("Off");
       // Exposes a set that can be queried for membership.
       // An important detail is that multiple states could expose the same member.
       // yield member("Off");
@@ -28,7 +30,7 @@ describe("Switch", () => {
       yield on("flick", On);
     }
     function* On() {
-      // yield primary("On");
+      yield expose("On");
       yield on("flick", Off);
     }
 
@@ -41,6 +43,7 @@ describe("Switch", () => {
     expect(machine.value).toMatchObject({
       change: 0,
       state: "Off",
+      // query: "Off="
     });
 
     machine.next("flick");
@@ -356,7 +359,9 @@ describe("Hierarchical Traffic Lights Machine", () => {
       yield on("PED_COUNTDOWN", stop);
     }
     function* stop() { }
-    function* blinking() { }
+    function* blinking() {
+      // yield expose("red", "blinking");
+    }
 
     return { walk, blinking };
   }
@@ -364,12 +369,22 @@ describe("Hierarchical Traffic Lights Machine", () => {
     const { walk, blinking } = PedestrianFactory();
 
     function* green() {
+      // See also: CustomStateSet
+      // yield primitive("green");
+      // yield new URLSearchParams("green");
+      // yield primary("green");
+      yield expose("green");
+      // yield member("green");
       yield on("TIMER", yellow);
     }
     function* yellow() {
+      yield expose("yellow");
+      // yield member("yellow");
       yield on("TIMER", red);
     }
     function* red() {
+      yield expose("red");
+      // yield member("red");
       yield on("TIMER", green);
 
       return walk;
@@ -387,6 +402,7 @@ describe("Hierarchical Traffic Lights Machine", () => {
     expect(machine.value).toMatchObject({
       change: 0,
       state: "green",
+      // query: "green"
     });
 
     machine.next("TIMER");
