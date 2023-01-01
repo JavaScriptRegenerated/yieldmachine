@@ -4,32 +4,12 @@
 
 import React, {
   StrictMode,
-  useEffect,
-  useReducer,
-  useRef,
-  useSyncExternalStore,
 } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import "@testing-library/jest-dom";
 import { render, screen } from "@testing-library/react";
 import user from "@testing-library/user-event";
-import {
-  always,
-  compound,
-  cond,
-  entry,
-  exit,
-  on,
-  listenTo,
-  send,
-  start,
-  accumulate,
-  onceStateChangesTo,
-  readContext,
-  MachineInstance,
-  StateDefinition,
-  Yielded,
-} from "yieldmachine";
+import { on } from "yieldmachine";
 import { useMachine } from "./index"
 
 describe("simple button", () => {
